@@ -1,5 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Line } from '@react-three/drei'
+import { useFrame, type ThreeElements } from '@react-three/fiber'
+import * as THREE from 'three'
+
+
 
 // Helper function to convert json latitude and longitude to vector 3
 function latLngToVector3(lat: number, lng: number, radius: number): [number, number, number] {
@@ -64,8 +68,10 @@ function renderCountryLines(feature: any) {
 }
 
 
-function ThreeScene() {
+function ThreeScene(props: ThreeElements['mesh']) {
     const [countries, setCountries] = useState<any>(null)
+
+    const earthRef = useRef<THREE.Mesh>(null!)
 
     useEffect(() => {
         fetch('/ne_110m_admin_0_countries.json')
@@ -77,15 +83,19 @@ function ThreeScene() {
     }, [])
 
 
+    // Spin Globe  - Speed is controlled by delta/8
+    useFrame((state, delta) => (earthRef.current.rotation.y -= delta/8))
+
     return (
       <>
-        <mesh>
-            <sphereGeometry args={[1, 16, 16]} />
-            <meshBasicMaterial color="blue" />
-        </mesh>
-        <directionalLight color="white" position={[0, 0, 5]} />
-        
-        {countries && countries.features.map(renderCountryLines)}
+        <group ref={earthRef}>
+          <mesh>
+              <sphereGeometry args={[1, 16, 16]} />
+              <meshStandardMaterial color="blue" />
+          </mesh>
+          
+          {countries && countries.features.map(renderCountryLines)}
+        </group>
       </>
     )
 }
