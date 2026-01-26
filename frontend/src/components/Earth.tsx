@@ -1,7 +1,5 @@
-import { Canvas } from '@react-three/fiber'
-import { Stats, OrbitControls, Line } from '@react-three/drei'
 import { useState, useEffect } from 'react'
-
+import { Line } from '@react-three/drei'
 
 // Helper function to convert json latitude and longitude to vector 3
 function latLngToVector3(lat: number, lng: number, radius: number): [number, number, number] {
@@ -80,7 +78,7 @@ function ThreeScene() {
 
 
     return (
-        <Canvas>
+      <>
         <mesh>
             <sphereGeometry args={[1, 16, 16]} />
             <meshBasicMaterial color="blue" />
@@ -88,10 +86,7 @@ function ThreeScene() {
         <directionalLight color="white" position={[0, 0, 5]} />
         
         {countries && countries.features.map(renderCountryLines)}
-
-        <OrbitControls />
-        <Stats />
-        </Canvas>
+      </>
     )
 }
 
