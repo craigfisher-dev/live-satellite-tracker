@@ -2,6 +2,7 @@ import { Canvas } from '@react-three/fiber'
 import {Stats, OrbitControls, Sky} from '@react-three/drei'
 import EarthScene from './components/Earth'
 import Clock from './components/Clock'
+import Sun from './components/Sun'
 import { useEffect, useState } from 'react'
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
     <>
       {/* All scenes go inside the Canvas */}
       <Canvas>
+        <Sun simTime={simTime} />
         <EarthScene 
                 simTime={simTime}
         />

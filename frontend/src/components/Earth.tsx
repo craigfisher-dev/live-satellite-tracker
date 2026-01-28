@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import * as THREE from 'three'
-import { Line } from '@react-three/drei'
+import { Html, Line } from '@react-three/drei'
 
 interface EarthProps {
     simTime: Date
@@ -85,23 +85,33 @@ function ThreeScene({simTime}: EarthProps) {
     }, [])
 
     return (
-      <>
-        <group ref={earthRef} rotation={[earthRotation, rotationY, 0]}>
-          <mesh>
-              <sphereGeometry args={[1, 32, 32]} />
-              <meshStandardMaterial color="blue" />
-          </mesh>
-          
-          {linePoints && (
-                <Line
-                    points={linePoints}
-                    segments
-                    color="cyan"
-                    lineWidth={1}
-                />
-          )}
-        </group>
-      </>
+        <>
+            {/* World reference axis */}
+            {/* <Line points={[[0,0,0], [0,3,0]]} color="yellow" lineWidth={2} /> */}
+            
+            <group rotation={[earthRotation, 0, 0]}> {/* fixed tilt */}
+                {/* Earth's rotation axis (toward Polaris (North star)) */}
+                <Line points={[[0,-1.8,0], [0,1.8,0]]} color="red" lineWidth={2} />
+                <Html position={[0, 2, 0]}><span style={{color: 'red', fontSize: '12px'}}>Polaris</span></Html>
+                <Html position={[0, -2, 0]}><span style={{color: 'red', fontSize: '12px'}}>South</span></Html>
+                
+                <group ref={earthRef} rotation={[0, rotationY, 0]}> {/* daily spin */}
+                    <mesh>
+                        <sphereGeometry args={[1, 32, 32]} />
+                        <meshStandardMaterial color="blue" />
+                    </mesh>
+                    
+                    {linePoints && (
+                        <Line
+                            points={linePoints}
+                            segments
+                            color="cyan"
+                            lineWidth={1}
+                        />
+                    )}
+                </group>
+            </group>
+        </>
     )
 }
 
