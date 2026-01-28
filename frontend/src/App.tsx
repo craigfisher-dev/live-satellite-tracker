@@ -1,5 +1,5 @@
-import { Ion, JulianDate, Color } from 'cesium'
-import { Viewer, Globe, Sun, GeoJsonDataSource, Clock as CesiumClock } from 'resium'
+import { Ion, JulianDate, OpenStreetMapImageryProvider} from 'cesium'
+import { Viewer, Globe, Clock as CesiumClock, ImageryLayer, SkyAtmosphere, SkyBox, Sun, Moon} from 'resium'
 import Clock from './components/Clock'
 import CountryBorders from './components/countryBorders'
 import { useEffect, useState } from 'react'
@@ -41,7 +41,18 @@ function App() {
         timeline={false}  // hide Cesium's timeline
         animation={false} // hide Cesium's clock widget
       >
+        <ImageryLayer
+          imageryProvider={
+            new OpenStreetMapImageryProvider({
+              url: 'https://tile.openstreetmap.org/'
+            })
+          }
+        />
         <Globe enableLighting />  {/* automatic day/night */}
+        <SkyAtmosphere />
+        <SkyBox show />
+        <Sun />
+        <Moon />
         <CesiumClock currentTime={julianDate} shouldAnimate={false} />
         <CountryBorders />
       </Viewer>
