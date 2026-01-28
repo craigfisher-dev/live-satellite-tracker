@@ -1,6 +1,7 @@
-import { Ion, JulianDate } from 'cesium'
-import { Viewer, Globe, Sun, Clock as CesiumClock } from 'resium'
+import { Ion, JulianDate, Color } from 'cesium'
+import { Viewer, Globe, Sun, GeoJsonDataSource, Clock as CesiumClock } from 'resium'
 import Clock from './components/Clock'
+import CountryBorders from './components/countryBorders'
 import { useEffect, useState } from 'react'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
 
@@ -42,6 +43,7 @@ function App() {
       >
         <Globe enableLighting />  {/* automatic day/night */}
         <CesiumClock currentTime={julianDate} shouldAnimate={false} />
+        <CountryBorders />
       </Viewer>
 
       {/* Your custom clock UI */}

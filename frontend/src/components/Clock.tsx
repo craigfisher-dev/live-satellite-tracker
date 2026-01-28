@@ -68,21 +68,17 @@ function Clock({simTime, isPaused, simSpeed, setSimTime, setIsPaused, setSimSpee
             <span style={{ color: color }}>
                 {utcString}
             </span>
-            {/* Reverse */}
-            <button onClick={handleSpeedDecrease}>
-                {<FastForward style={{ transform: 'scaleX(-1)' }}/>}
+            <button onClick={handleSpeedDecrease} className="p-1 bg-black/70 rounded ml-2">
+                <FastForward className="w-4 h-4 text-white rotate-180" />
             </button>
-            {/* Play/Pause */}
-            <button onClick={handleClick}>
-                {isPaused ? <Play /> : <Pause />}
+            <button onClick={handleClick} className="p-1 bg-black/70 rounded ml-1">
+                {isPaused ? <Play className="w-4 h-4 text-white" /> : <Pause className="w-4 h-4 text-white" />}
             </button>
-            {/* Forward */}
-            <button onClick={handleSpeedIncrease}>
-                {<FastForward/>}
+            <button onClick={handleSpeedIncrease} className="p-1 bg-black/70 rounded ml-1">
+                <FastForward className="w-4 h-4 text-white" />
             </button>
-            {/* Reset Time */}
-            <button onClick={handleResetTime}>
-                {<RotateCcw/>}
+            <button onClick={handleResetTime} className="p-1 bg-black/70 rounded ml-1">
+                <RotateCcw className="w-4 h-4 text-white" />
             </button>
         </div>
     )
