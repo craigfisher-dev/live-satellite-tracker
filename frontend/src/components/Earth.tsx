@@ -8,7 +8,7 @@ interface EarthProps {
 
 
 // Helper function to convert json latitude and longitude to vector 3
-function latLngToVector3(lat: number, lng: number, radius: number): [number, number, number] {
+export function latLngToVector3(lat: number, lng: number, radius: number): [number, number, number] {
   const phi = (90 - lat) * (Math.PI / 180)
   const theta = (lng + 180) * (Math.PI / 180)
   
@@ -68,10 +68,10 @@ function buildCountryPoints(data: any, radius: number): [number, number, number]
 function ThreeScene({simTime}: EarthProps) {
     const [linePoints, setLinePoints] = useState<[number, number, number][] | null>(null)
 
-    const earthRotation = 23.4 * Math.PI/180;
+    const earthRotation = 23.4 * Math.PI/180
     const hoursElapsed = simTime.getUTCHours() + simTime.getUTCMinutes() / 60 + simTime.getUTCSeconds() / 3600
     const dayFraction = hoursElapsed / 24
-    const rotationY = dayFraction * 2 * Math.PI
+    const rotationY = (dayFraction - 0.75) * 2 * Math.PI
 
     const earthRef = useRef<THREE.Group>(null!)
 
@@ -79,7 +79,7 @@ function ThreeScene({simTime}: EarthProps) {
         fetch('/ne_110m_admin_0_countries.json')
         .then(response => response.json())
         .then(data => {
-            const points = buildCountryPoints(data, 1.01)
+            const points = buildCountryPoints(data, 1)
             setLinePoints(points)
         })
     }, [])

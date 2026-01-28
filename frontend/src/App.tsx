@@ -10,14 +10,20 @@ function App() {
   const [isPaused, setIsPaused] = useState(false)
   const [simSpeed, setSimSpeed] = useState(1)  // 1x, 10x, -1x, etc.
 
-  const fps = 165
+  const fps = 30
   const milliseconds = 1000 / fps
 
   useEffect(() => {
     if (isPaused) return
+
+    let lastRealTime = Date.now()
     
     const interval = setInterval(() => {
-      setSimTime(prev => new Date(prev.getTime() + milliseconds * simSpeed))
+      const now = Date.now()
+      const elapsed = now - lastRealTime
+      lastRealTime = now
+
+      setSimTime(prev => new Date(prev.getTime() + elapsed * simSpeed))
     }, milliseconds)
     
     return () => clearInterval(interval)
@@ -27,7 +33,6 @@ function App() {
     <>
       {/* All scenes go inside the Canvas */}
       <Canvas>
-        <directionalLight color="white" position={[0, 0, 5]} />
         <EarthScene 
                 simTime={simTime}
         />
