@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { useFrame, type ThreeElements } from '@react-three/fiber'
 import * as THREE from 'three'
+import { Line } from '@react-three/drei'
 
+interface EarthProps {
+    simTime: Date
+}
 
 
 // Helper function to convert json latitude and longitude to vector 3
@@ -18,28 +21,26 @@ function latLngToVector3(lat: number, lng: number, radius: number): [number, num
 
 
 // Extract line segments from a single polygon
-function getPolygonLineSegments(coords: number[][], radius: number): number[] {
-    const points: number[] = []
+function getPolygonLineSegments(coords: number[][], radius: number): [number, number, number][] {
+    const points: [number, number, number][] = []
     
     for (let i = 0; i < coords.length - 1; i++) {
         const [lng1, lat1] = coords[i]
         const [lng2, lat2] = coords[i + 1]
         
-        const p1 = latLngToVector3(lat1, lng1, radius)
-        const p2 = latLngToVector3(lat2, lng2, radius)
-        
-        points.push(...p1, ...p2)
+        points.push(latLngToVector3(lat1, lng1, radius))
+        points.push(latLngToVector3(lat2, lng2, radius))
     }
     
     return points
 }
 
 // Extract all line segments from a GeoJSON feature (country)
-function getFeatureLineSegments(feature: any, radius: number): number[] {
+function getFeatureLineSegments(feature: any, radius: number): [number, number, number][] {
     const { type, coordinates } = feature.geometry
     const polygons = type === 'Polygon' ? [coordinates] : coordinates
     
-    const points: number[] = []
+    const points: [number, number, number][] = []
     
     polygons.forEach((polygon: any) => {
         const coords = polygon[0] // outer ring
@@ -49,29 +50,28 @@ function getFeatureLineSegments(feature: any, radius: number): number[] {
     return points
 }
 
-// Build geometry from GeoJSON data
-function buildCountryGeometry(data: any, radius: number): THREE.BufferGeometry {
-    const allPoints: number[] = []
+// Build points array from GeoJSON data
+function buildCountryPoints(data: any, radius: number): [number, number, number][] {
+    const allPoints: [number, number, number][] = []
     
     data.features.forEach((feature: any) => {
         allPoints.push(...getFeatureLineSegments(feature, radius))
     })
     
-    console.log('Total line segments:', allPoints.length / 6)
+    console.log('Total line segments:', allPoints.length / 2)
     
-    const geometry = new THREE.BufferGeometry()
-    geometry.setAttribute(
-        'position',
-        new THREE.Float32BufferAttribute(allPoints, 3)
-    )
-    
-    return geometry
+    return allPoints
 }
 
 
 
-function ThreeScene(_props: ThreeElements['mesh']) {
-    const [lineGeometry, setLineGeometry] = useState<THREE.BufferGeometry | null>(null)
+function ThreeScene({simTime}: EarthProps) {
+    const [linePoints, setLinePoints] = useState<[number, number, number][] | null>(null)
+
+    const earthRotation = 23.4 * Math.PI/180;
+    const hoursElapsed = simTime.getUTCHours() + simTime.getUTCMinutes() / 60 + simTime.getUTCSeconds() / 3600
+    const dayFraction = hoursElapsed / 24
+    const rotationY = dayFraction * 2 * Math.PI
 
     const earthRef = useRef<THREE.Group>(null!)
 
@@ -79,27 +79,26 @@ function ThreeScene(_props: ThreeElements['mesh']) {
         fetch('/ne_110m_admin_0_countries.json')
         .then(response => response.json())
         .then(data => {
-            const geometry = buildCountryGeometry(data, 1.01)
-            setLineGeometry(geometry)
+            const points = buildCountryPoints(data, 1.01)
+            setLinePoints(points)
         })
     }, [])
 
-
-    // Spin Globe  - Speed is controlled by delta/8
-    useFrame((_state, delta) => (earthRef.current.rotation.y -= delta/25))
-
     return (
       <>
-        <group ref={earthRef}>
+        <group ref={earthRef} rotation={[earthRotation, rotationY, 0]}>
           <mesh>
               <sphereGeometry args={[1, 32, 32]} />
               <meshStandardMaterial color="blue" />
           </mesh>
           
-          {lineGeometry && (
-                <lineSegments geometry={lineGeometry}>
-                    <lineBasicMaterial color="cyan" />
-                </lineSegments>
+          {linePoints && (
+                <Line
+                    points={linePoints}
+                    segments
+                    color="cyan"
+                    lineWidth={1}
+                />
           )}
         </group>
       </>

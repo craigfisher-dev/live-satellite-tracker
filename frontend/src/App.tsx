@@ -10,12 +10,15 @@ function App() {
   const [isPaused, setIsPaused] = useState(false)
   const [simSpeed, setSimSpeed] = useState(1)  // 1x, 10x, -1x, etc.
 
+  const fps = 165
+  const milliseconds = 1000 / fps
+
   useEffect(() => {
     if (isPaused) return
     
     const interval = setInterval(() => {
-      setSimTime(prev => new Date(prev.getTime() + 1000 * simSpeed))
-    }, 1000)
+      setSimTime(prev => new Date(prev.getTime() + milliseconds * simSpeed))
+    }, milliseconds)
     
     return () => clearInterval(interval)
   }, [isPaused, simSpeed])
@@ -25,7 +28,9 @@ function App() {
       {/* All scenes go inside the Canvas */}
       <Canvas>
         <directionalLight color="white" position={[0, 0, 5]} />
-        <EarthScene />
+        <EarthScene 
+                simTime={simTime}
+        />
         <OrbitControls />
         <Stats />
         <Sky distance={450000} sunPosition={[0, 1, 0]} inclination={0} azimuth={0.25}/>  
