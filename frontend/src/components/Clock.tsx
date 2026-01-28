@@ -9,7 +9,9 @@ interface ClockProps {
     setSimSpeed: (simSpeed: number) => void
 }
 
-const speeds = [-100, -10, -1, 1, 10, 100]
+const speeds = [-1000, -500, -100, -10, -1, 1, 10, 100, 500, 1000]
+
+const speedLength : number = speeds.length
 
 function Clock({simTime, isPaused, simSpeed, setSimTime, setIsPaused, setSimSpeed}: ClockProps) {
     const utcString = simTime.toUTCString()
@@ -21,7 +23,7 @@ function Clock({simTime, isPaused, simSpeed, setSimTime, setIsPaused, setSimSpee
     {
         const realTime = new Date()
         const diff = simTime.getTime() - realTime.getTime()  // difference in milliseconds
-        const tolerance = 1000  // 1 seconds
+        const tolerance = 1500  // 1.5 seconds
         
         if (diff > tolerance) {
             return "ahead"
@@ -39,7 +41,7 @@ function Clock({simTime, isPaused, simSpeed, setSimTime, setIsPaused, setSimSpee
     function handleSpeedIncrease() {
         let currentIndex = speeds.indexOf(simSpeed)
         // If 100 speed do not increase else increase speed
-        currentIndex === 5 ? currentIndex = 5 : currentIndex = currentIndex + 1
+        currentIndex === speedLength - 1 ? currentIndex = speedLength - 1 : currentIndex = currentIndex + 1
         setSimSpeed(speeds[currentIndex])
     }
 
@@ -55,7 +57,7 @@ function Clock({simTime, isPaused, simSpeed, setSimTime, setIsPaused, setSimSpee
         const realTime = new Date()
         setSimTime(realTime)
         // Resets SimSpeed back to 1x
-        setSimSpeed(speeds[3])
+        setSimSpeed(speeds[speedLength/2])
         // Starts up again
         setIsPaused(false)
     }
