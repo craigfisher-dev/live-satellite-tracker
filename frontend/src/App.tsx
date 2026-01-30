@@ -3,9 +3,11 @@ import * as Cesium from 'cesium'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
 
 import Clock from './components/Clock'
-import { loadCountryBorders } from './components/CountryBorders'
+import { loadCountryBorders } from './utils/CountryBorders'
+import { Satellite } from './utils/SatelliteTracker'
 
 function App() {
+
   // containerRef points to the div where Cesium will render the 3D globe
   const containerRef = useRef<HTMLDivElement>(null)
   
@@ -19,8 +21,8 @@ function App() {
   const [isPaused, setIsPaused] = useState(false)
   const [simSpeed, setSimSpeed] = useState(1) // 1 = real-time, 60 = 1 min/sec, etc.
 
-  // Target 30 frames per second for the simulation loop
-  const fps = 30
+  // Target 60 frames per second for the simulation loop
+  const fps = 60
   const milliseconds = 1000 / fps
 
   // Initialize Cesium viewer once when component mounts
@@ -35,12 +37,15 @@ function App() {
       animation: false,          // Hide the clock/animation widget
       baseLayerPicker: false,    // Hide the imagery layer picker
       geocoder: false,           // Hide the search box
-      homeButton: false,         // Hide the home button
+      homeButton: true,         // shows the home button
       sceneModePicker: false,    // Hide 2D/3D/Columbus view picker
       navigationHelpButton: false, // Hide the ? help button
       baseLayer: false,          // Don't load default Bing imagery
       requestRenderMode: true,   // Only re-render when something changes (saves GPU)
     })
+
+    // Show FPS counter in the top-left
+    viewer.scene.debugShowFramesPerSecond = true
 
     // Add OpenStreetMap tiles as our base imagery layer
     // OSM is free and doesn't require an API key
@@ -58,6 +63,9 @@ function App() {
 
     // Load country border outlines on top of the map
     loadCountryBorders(viewer)
+
+    // Load satellites
+    Satellite()
 
     // Cleanup function - runs when component unmounts
     // Important: Cesium uses lots of GPU resources, must clean up properly
