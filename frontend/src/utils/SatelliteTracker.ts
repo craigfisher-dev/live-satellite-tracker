@@ -1,14 +1,11 @@
 import * as Cesium from 'cesium'
 import * as satellite from 'satellite.js'
+import { fetchSatelliteData } from './satelliteCache'
 
 export async function Satellite(viewer: Cesium.Viewer) {
 
   // Fetch all stations
-
-  // Use this once caching is set up to not get rate limited by there API
-
-  const res = await fetch('/stations.json')
-  const ommData = await res.json()
+  const ommData = await fetchSatelliteData()
 
   // Create collections (one draw call each)
   const pointCollection = viewer.scene.primitives.add(new Cesium.PointPrimitiveCollection())
