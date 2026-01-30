@@ -65,7 +65,7 @@ function App() {
     loadCountryBorders(viewer)
 
     // Load satellites
-    Satellite()
+    Satellite(viewer)
 
     // Cleanup function - runs when component unmounts
     // Important: Cesium uses lots of GPU resources, must clean up properly
