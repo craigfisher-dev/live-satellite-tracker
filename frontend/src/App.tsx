@@ -6,6 +6,9 @@ import Clock from './components/Clock'
 import { loadCountryBorders } from './utils/CountryBorders'
 import { Satellite } from './utils/SatelliteTracker'
 
+
+
+
 function App() {
 
   // containerRef points to the div where Cesium will render the 3D globe
@@ -47,12 +50,17 @@ function App() {
     // Show FPS counter in the top-left
     viewer.scene.debugShowFramesPerSecond = true
 
-    // Add OpenStreetMap tiles as our base imagery layer
-    // OSM is free and doesn't require an API key
-    const osm = new Cesium.OpenStreetMapImageryProvider({
-      url: 'https://tile.openstreetmap.org/'
+
+    // Loads in .env MapTiler Key
+    const MAP_TILER_KEY = import.meta.env.VITE_MAP_TILER_KEY
+
+    // MapTiler provides OpenStreetMap data with customizable language labels
+    // API key is stored in .env as VITE_MAP_TILER_KEY (VITE_ prefix required for client access)
+    const mapTiler = new Cesium.UrlTemplateImageryProvider({
+      url: `https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.jpg?key=${MAP_TILER_KEY}`,
+      credit: '© MapTiler © OpenStreetMap contributors'
     })
-    viewer.imageryLayers.addImageryProvider(osm)
+    viewer.imageryLayers.addImageryProvider(mapTiler)
 
     // Enable day/night shading based on sun position
     // The dark side of Earth will actually look dark

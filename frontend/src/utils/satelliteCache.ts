@@ -34,6 +34,8 @@ export async function fetchSatelliteData(): Promise<any[]> {
 
   // Cache miss or expired: fetch fresh data from API
   console.log('Fetching fresh data...')
+  // Use stations.json for testing feature in small scale
+  // API Endpoint for all satelites https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=JSON
   const res = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=JSON')
   const data = await res.json()
 
