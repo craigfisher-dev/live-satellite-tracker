@@ -23,6 +23,8 @@ export async function Satellite(viewer: Cesium.Viewer) {
   // Track currently selected satellite
   let selectedSatellite: typeof satellites[0] | null = null
 
+  let selectedOriginalColor: Cesium.Color | null = null
+
   // Create all points and labels once
   for (const omm of ommData) {
 
@@ -83,29 +85,35 @@ export async function Satellite(viewer: Cesium.Viewer) {
     return orbitPositions
   }
 
-  // Click handler
-  const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
-  handler.setInputAction((click: { position: Cesium.Cartesian2 }) => {
-    const picked = viewer.scene.pick(click.position)
 
-    // Clear previous selection
-    if (selectedSatellite) {
-      selectedSatellite.point.color = Cesium.Color.BLUE
-      selectedSatellite.orbitalPredictionPath.positions = []
-    }
 
-    // Check if we clicked a point
-    if (picked && picked.primitive instanceof Cesium.PointPrimitive) {
-      const sat = pointToSatellite.get(picked.primitive)
-      if (sat) {
-        selectedSatellite = sat
-        sat.point.color = Cesium.Color.RED
-        sat.orbitalPredictionPath.positions = calculateOrbit(sat)
-      }
-    } else {
-      selectedSatellite = null
+
+// Click handler
+const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
+
+handler.setInputAction((click: { position: Cesium.Cartesian2 }) => {
+  const picked = viewer.scene.pick(click.position)
+
+  // Clear previous selection - restore original color
+  if (selectedSatellite && selectedOriginalColor) {
+    selectedSatellite.point.color = selectedOriginalColor
+    selectedSatellite.orbitalPredictionPath.positions = []
+  }
+
+  // Check if we clicked a point
+  if (picked && picked.primitive instanceof Cesium.PointPrimitive) {
+    const sat = pointToSatellite.get(picked.primitive)
+    if (sat) {
+      selectedOriginalColor = sat.point.color.clone() // Store BEFORE changing
+      selectedSatellite = sat
+      sat.point.color = Cesium.Color.RED
+      sat.orbitalPredictionPath.positions = calculateOrbit(sat)
     }
-  }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+  } else {
+    selectedSatellite = null
+    selectedOriginalColor = null
+  }
+}, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 
   const scratch = new Cesium.Cartesian3()
 

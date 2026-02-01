@@ -5,7 +5,7 @@ import 'cesium/Build/Cesium/Widgets/widgets.css'
 import Clock from './components/Clock'
 import { loadCountryBorders } from './utils/CountryBorders'
 import { Satellite } from './utils/SatelliteTracker'
-
+import Legend from './components/Legend'
 
 
 
@@ -119,6 +119,15 @@ function App() {
       {/* This div is where Cesium renders the 3D globe */}
       <div ref={containerRef} style={{ width: '100%', height: '100vh' }} />
 
+      {/* Legend UI */}
+      <div style={{
+        position: 'fixed',
+        top: '20px',
+        left: '20px',
+        zIndex: 1000
+      }}>
+        <Legend />
+      </div>
       {/* Clock UI - positioned fixed so it floats over the globe */}
       <div style={{
         position: 'fixed',
