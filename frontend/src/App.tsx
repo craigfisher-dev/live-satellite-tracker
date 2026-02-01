@@ -6,7 +6,8 @@ import Clock from './components/Clock'
 import { loadCountryBorders } from './utils/CountryBorders'
 import { Satellite } from './utils/SatelliteTracker'
 import Legend from './components/Legend'
-
+import { Analytics } from "@vercel/analytics/react"
+import { SpeedInsights } from '@vercel/speed-insights/react'
 
 
 function App() {
@@ -144,6 +145,11 @@ function App() {
           setSimSpeed={setSimSpeed}
         />
       </div>
+
+      {/* Vercel Analytics */}
+      <Analytics />
+      {/* Vercel Speed Insights */}
+      <SpeedInsights/>
     </>
   )
 }
