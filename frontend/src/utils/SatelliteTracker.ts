@@ -1,6 +1,7 @@
 import * as Cesium from 'cesium'
 import * as satellite from 'satellite.js'
 import { fetchSatelliteData } from './satelliteCache'
+import { SatelliteFilterByName } from './SatelliteFilter'
 
 export async function Satellite(viewer: Cesium.Viewer) {
 
@@ -31,11 +32,15 @@ export async function Satellite(viewer: Cesium.Viewer) {
     // Satellite record
     const satrec = satellite.json2satrec(omm)
 
-    const point = pointCollection.add({
+    let point : Cesium.PointPrimitive
+
+    point = pointCollection.add({
       position: Cesium.Cartesian3.ZERO,
-      pixelSize: 6,
-      color: Cesium.Color.BLUE
+      pixelSize: 3,
+      color: SatelliteFilterByName(omm),
+      scaleByDistance: new Cesium.NearFarScalar(1e6, 2, 1e8, 0.5)
     })
+    
 
     // Initialize with empty positions (will fill on click)
     const orbitalPredictionPath = orbitalPredictionPaths.add({
@@ -133,6 +138,11 @@ export async function Satellite(viewer: Cesium.Viewer) {
 
       // Set new position on map and in the label
       sat.point.position = scratch
+    }
+
+    // Update orbit path for selected satellite
+    if (selectedSatellite) {
+      selectedSatellite.orbitalPredictionPath.positions = calculateOrbit(selectedSatellite)
     }
 
     // Calls on next frame
