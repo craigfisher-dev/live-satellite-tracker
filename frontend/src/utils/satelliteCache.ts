@@ -2,8 +2,8 @@
 const DB_NAME = 'satellite_cache'
 
 // Date.now() is in milliseconds, so everything needs to match that
-// 3 hours * 60 min * 60 sec * 1000 ms
-const CACHE_DURATION = 3 * 60 * 60 * 1000
+// 24 hours * 60 min * 60 sec * 1000 ms
+const CACHE_DURATION = 24 * 60 * 60 * 1000
 
 // Use Vercel edge function in production, direct API in dev
 // import.meta.env.PROD is built into Vite automatically - no config needed
@@ -52,6 +52,20 @@ export async function fetchSatelliteData(): Promise<any[]> {
   console.time('API fetch')
   const res = await fetch(API_URL)
   console.timeEnd('API fetch')
+
+  // Handle failed fetch - use stale cache if available, otherwise throw
+  if (!res.ok) {
+    console.error(`API error: ${res.status}`)
+    
+    if (cached) {
+      console.log('SOURCE: Using stale IndexedDB cache (API failed)')
+      console.log(`Satellite count: ${cached.data.length}`)
+      console.timeEnd('Total fetchSatelliteData')
+      return cached.data
+    }
+    
+    throw new Error(`Failed to fetch satellite data: ${res.status}`)
+  }
 
   // Log Vercel cache status (only works in production)
   // x-vercel-cache header values:

@@ -39,8 +39,8 @@ export default async function handler() {
     return new Response(JSON.stringify(trimmedData), {
       headers: {
         'Content-Type': 'application/json',
-        // Cache for 3 hours, stale for 3 more (cron runs every 2 hours)
-        'Cache-Control': 'public, s-maxage=10800, stale-while-revalidate=10800',
+        // Cache for 24 hours, stale for 24 more (cron runs daily at midnight UTC)
+        'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=86400',
         'Access-Control-Allow-Origin': '*',
       },
     })
