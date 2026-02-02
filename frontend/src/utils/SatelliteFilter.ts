@@ -16,7 +16,7 @@ export function SatelliteFilterByName(omm : any) : Cesium.Color {
     else if (SatelliteName.includes("IRIDIUM")) {
         return Cesium.Color.YELLOW;
     }
-    else if (SatelliteName.includes("GPS")) {
+    else if (SatelliteName.includes("GPS") || SatelliteName.includes("NAVSTAR")) {
         return Cesium.Color.RED;
     }
     else if (SatelliteName.includes("GLOBALSTAR")) {

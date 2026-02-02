@@ -5,7 +5,7 @@ import * as Cesium from 'cesium'
 
 const filters = [
   {
-    title: 'By Name',
+    title: 'Network',
     items: [
       { label: 'Starlink', color: Cesium.Color.DODGERBLUE },
       { label: 'OneWeb', color: Cesium.Color.LIMEGREEN },
@@ -22,7 +22,7 @@ const filters = [
     ]
   },
   {
-    title: 'By Altitude',
+    title: 'Altitude',
     items: [
       { label: 'LEO (< 2,000 km)', color: Cesium.Color.BLUE },
       { label: 'MEO (2,000 - 35,000 km)', color: Cesium.Color.GREEN },
