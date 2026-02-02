@@ -5,44 +5,87 @@ const DB_NAME = 'satellite_cache'
 // 3 hours * 60 min * 60 sec * 1000 ms
 const CACHE_DURATION = 3 * 60 * 60 * 1000
 
+// Use Vercel edge function in production, direct API in dev
+// import.meta.env.PROD is built into Vite automatically - no config needed
+// npm run dev → false, npm run build → true
+const API_URL = import.meta.env.PROD 
+  ? '/api/satellites'  // Production: Vercel edge cache
+  : 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=JSON' // Dev: direct (all satellites)
+
 export async function fetchSatelliteData(): Promise<any[]> {
 
+  console.time('Total fetchSatelliteData')
+  console.log(`API URL: ${API_URL}`)
+  console.log(`Environment: ${import.meta.env.PROD ? 'PRODUCTION' : 'DEVELOPMENT'}`)
+
   // Open (or create) the IndexedDB database
-  // Wrapping in Promise because IndexedDB uses callbacks, not promises
+  console.time('IndexedDB open')
   const db = await new Promise<IDBDatabase>((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1) // 1 is the version number
+    const req = indexedDB.open(DB_NAME, 1)
     req.onerror = () => reject(req.error)
     req.onsuccess = () => resolve(req.result)
-    // onupgradeneeded fires on first create or version change
-    // This is where you set up the "tables" (object stores)
     req.onupgradeneeded = () => req.result.createObjectStore('cache')
   })
-
+  console.timeEnd('IndexedDB open')
+  
   // Try to get cached data from IndexedDB
-  // readonly transaction since we're just reading
+  console.time('IndexedDB read')
   const cached = await new Promise<any>((resolve) => {
     const req = db.transaction('cache', 'readonly').objectStore('cache').get('satellites')
     req.onsuccess = () => resolve(req.result)
-    req.onerror = () => resolve(null) // Return null if error, don't crash
+    req.onerror = () => resolve(null)
   })
+  console.timeEnd('IndexedDB read')
 
   // Cache hit: data exists and hasn't expired
   if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-    console.log('Using cached data')
+    const cacheAge = Math.round((Date.now() - cached.timestamp) / 1000 / 60)
+    console.log(`SOURCE: IndexedDB cache (${cacheAge} minutes old)`)
+    console.log(`Satellite count: ${cached.data.length}`)
+    console.timeEnd('Total fetchSatelliteData')
     return cached.data
   }
 
   // Cache miss or expired: fetch fresh data from API
-  console.log('Fetching fresh data...')
-  // Use stations.json for testing feature in small scale
-  // API Endpoint for all satelites https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=JSON
-  const res = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=JSON')
+  console.log('IndexedDB cache miss or expired, fetching from network...')
+  
+  console.time('API fetch')
+  const res = await fetch(API_URL)
+  console.timeEnd('API fetch')
+
+  // Log Vercel cache status (only works in production)
+  // x-vercel-cache header values:
+  // HIT = served from Vercel edge cache (fast)
+  // STALE = served stale while fetching fresh in background
+  // MISS = had to fetch from CelesTrak (first request or cache expired)
+  const cacheStatus = res.headers.get('x-vercel-cache')
+  const age = res.headers.get('age')
+  
+  console.log('Response headers:')
+  console.log(`  x-vercel-cache: ${cacheStatus || 'N/A (dev mode)'}`)
+  console.log(`  age: ${age ? age + ' seconds' : 'N/A'}`)
+  
+  if (cacheStatus === 'HIT') {
+    console.log('SOURCE: Vercel Edge Cache')
+  } else if (cacheStatus === 'STALE') {
+    console.log('SOURCE: Vercel Edge Cache (stale, revalidating)')
+  } else if (cacheStatus === 'MISS') {
+    console.log('SOURCE: Vercel Edge Function (fresh from CelesTrak)')
+  } else {
+    console.log('SOURCE: Direct from CelesTrak (dev mode)')
+  }
+
+  console.time('JSON parse')
   const data = await res.json()
+  console.timeEnd('JSON parse')
+  
+  console.log(`Satellite count: ${data.length}`)
 
   // Store fresh data with current timestamp
-  // readwrite transaction since we're writing
-  // put() updates existing or inserts new, 'satellites' is the key
+  console.time('IndexedDB write')
   db.transaction('cache', 'readwrite').objectStore('cache').put({ data, timestamp: Date.now() }, 'satellites')
+  console.timeEnd('IndexedDB write')
 
+  console.timeEnd('Total fetchSatelliteData')
   return data
 }

@@ -5,8 +5,13 @@ import { SatelliteFilterByName } from './SatelliteFilter'
 
 export async function Satellite(viewer: Cesium.Viewer) {
 
+  console.time('Total Satellite init')
+
+
   // Fetch all stations
+  console.time('Fetch data')
   const ommData = await fetchSatelliteData()
+  console.timeEnd('Fetch data')
 
   // Create collections (one draw call each)
   const pointCollection = viewer.scene.primitives.add(new Cesium.PointPrimitiveCollection())
@@ -26,6 +31,7 @@ export async function Satellite(viewer: Cesium.Viewer) {
   let selectedOriginalColor: Cesium.Color | null = null
 
   // Create all points and labels once
+  console.time('Create satellite objects')
   for (const omm of ommData) {
 
     // Use for later when adding info panel
@@ -55,6 +61,10 @@ export async function Satellite(viewer: Cesium.Viewer) {
     satellites.push(sat)
     pointToSatellite.set(point, sat)
   }
+
+  console.timeEnd('Create satellite objects')
+
+  console.timeEnd('Total Satellite init')
 
   // Function to calculate orbit for a satellite
   function calculateOrbit(sat: typeof satellites[0]) {

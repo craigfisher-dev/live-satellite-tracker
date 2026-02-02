@@ -1,0 +1,9 @@
+{
+  "framework": "vite",
+  "crons": [
+    {
+      "path": "/api/satellites",
+      "schedule": "0 */2 * * *"
+    }
+  ]
+}
