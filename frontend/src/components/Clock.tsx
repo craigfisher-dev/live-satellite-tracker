@@ -17,7 +17,8 @@ function Clock({simTime, isPaused, simSpeed, setSimTime, setIsPaused, setSimSpee
     const utcString = simTime.toUTCString()
 
     const status = getSimTimeStatus(simTime)
-    const color = status === 'ahead' ? 'blue' : status === 'behind' ? 'red' : 'green'
+    // Status colors: soft blue (ahead), coral/rose (behind), light lavender (current)
+    const color = status === 'ahead' ? '#60a5fa' : status === 'behind' ? '#fcd34d' : '#4ade80'
 
     function getSimTimeStatus(simTime : Date)
     {
@@ -64,22 +65,32 @@ function Clock({simTime, isPaused, simSpeed, setSimTime, setIsPaused, setSimSpee
 
 
     return (
-        <div>
-            <span style={{ color: color }}>
+        <div className="bg-black/80 border border-white/10 rounded-xl px-3 py-2 inline-flex items-center gap-2">
+            {/* Time display */}
+            <span style={{ color: color }} className="font-mono text-sm">
                 {utcString}
             </span>
-            <button onClick={handleSpeedDecrease} className="p-1 bg-black/70 rounded ml-2">
-                <FastForward className="w-4 h-4 text-white rotate-180" />
-            </button>
-            <button onClick={handleClick} className="p-1 bg-black/70 rounded ml-1">
-                {isPaused ? <Play className="w-4 h-4 text-white" /> : <Pause className="w-4 h-4 text-white" />}
-            </button>
-            <button onClick={handleSpeedIncrease} className="p-1 bg-black/70 rounded ml-1">
-                <FastForward className="w-4 h-4 text-white" />
-            </button>
-            <button onClick={handleResetTime} className="p-1 bg-black/70 rounded ml-1">
-                <RotateCcw className="w-4 h-4 text-white" />
-            </button>
+            
+            {/* Controls row */}
+            <div className="flex items-center gap-1">
+                <button onClick={handleSpeedDecrease} className="p-1.5 hover:bg-white/10 rounded">
+                    <FastForward className="w-4 h-4 text-white/70 rotate-180" />
+                </button>
+                <button onClick={handleClick} className="p-1.5 hover:bg-white/10 rounded">
+                    {isPaused ? <Play className="w-4 h-4 text-white/70" /> : <Pause className="w-4 h-4 text-white/70" />}
+                </button>
+                <button onClick={handleSpeedIncrease} className="p-1.5 hover:bg-white/10 rounded">
+                    <FastForward className="w-4 h-4 text-white/70" />
+                </button>
+                <button onClick={handleResetTime} className="p-1.5 hover:bg-white/10 rounded">
+                    <RotateCcw className="w-4 h-4 text-white/70" />
+                </button>
+            </div>
+
+            {/* Speed display */}
+            <span className="text-white/70 text-xs font-mono w-8 text-center">
+                {simSpeed}x
+            </span>
         </div>
     )
 }
