@@ -46,6 +46,7 @@ function App() {
       navigationHelpButton: false, // Hide the ? help button
       baseLayer: false,          // Don't load default Bing imagery
       requestRenderMode: true,   // Only re-render when something changes (saves GPU)
+      fullscreenButton: false    // Disables the full screen button
     })
 
     // Show FPS counter in the top-left
@@ -132,8 +133,8 @@ function App() {
       {/* Clock UI - positioned fixed so it floats over the globe */}
       <div style={{
         position: 'fixed',
-        bottom: '20px',
-        right: '50px',
+        bottom: '0px',
+        right: '0px',
         zIndex: 1000 // Above Cesium's canvas
       }}>
         <Clock

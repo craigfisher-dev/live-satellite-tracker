@@ -16,24 +16,7 @@ const speedLength : number = speeds.length
 function Clock({simTime, isPaused, simSpeed, setSimTime, setIsPaused, setSimSpeed}: ClockProps) {
     const utcString = simTime.toUTCString()
 
-    const status = getSimTimeStatus(simTime)
-    // Status colors: soft blue (ahead), coral/rose (behind), light lavender (current)
-    const color = status === 'ahead' ? '#60a5fa' : status === 'behind' ? '#fcd34d' : '#4ade80'
-
-    function getSimTimeStatus(simTime : Date)
-    {
-        const realTime = new Date()
-        const diff = simTime.getTime() - realTime.getTime()  // difference in milliseconds
-        const tolerance = 1500  // 1.5 seconds
-        
-        if (diff > tolerance) {
-            return "ahead"
-        } else if (diff < -tolerance) {
-            return "behind"
-        } else {
-            return "current"
-        }
-    }
+    const color = '#60a5fa' // soft blue
 
     function handleClick() {
         isPaused ? setIsPaused(false) : setIsPaused(true)
@@ -65,7 +48,7 @@ function Clock({simTime, isPaused, simSpeed, setSimTime, setIsPaused, setSimSpee
 
 
     return (
-        <div className="bg-black/80 border border-white/10 rounded-xl px-3 py-2 inline-flex items-center gap-2">
+        <div className="bg-black/80 border border-white/10 rounded-xl px-3 py-0.5 inline-flex items-center gap-2">
             {/* Time display */}
             <span style={{ color: color }} className="font-mono text-sm">
                 {utcString}
