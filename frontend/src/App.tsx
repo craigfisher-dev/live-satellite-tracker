@@ -8,6 +8,7 @@ import { Satellite } from './utils/SatelliteTracker'
 import Legend from './components/Legend'
 import { Analytics } from "@vercel/analytics/react"
 import { SpeedInsights } from '@vercel/speed-insights/react'
+import { setupHelpPanel } from './utils/HelpPanel'
 
 
 function App() {
@@ -43,15 +44,17 @@ function App() {
       geocoder: false,           // Hide the search box
       homeButton: true,         // shows the home button
       sceneModePicker: false,    // Hide 2D/3D/Columbus view picker
-      navigationHelpButton: false, // Hide the ? help button
+      navigationHelpButton: true, // Hide the ? help button
       baseLayer: false,          // Don't load default Bing imagery
       requestRenderMode: true,   // Only re-render when something changes (saves GPU)
-      fullscreenButton: false    // Disables the full screen button
+      fullscreenButton: false,    // Disables the full screen button
     })
 
     // Show FPS counter in the top-left
     // viewer.scene.debugShowFramesPerSecond = true
 
+    // Setup the custom help panel
+    setupHelpPanel(viewer)
 
     // Loads in .env MapTiler Key
     const MAP_TILER_KEY = import.meta.env.VITE_MAP_TILER_KEY

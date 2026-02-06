@@ -61,7 +61,7 @@ export default function Legend() {
       color: 'white',
       fontFamily: 'sans-serif',
       fontSize: '13px',
-      minWidth: '180px',
+      minWidth: '120px',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
         <button onClick={handlePrev} className="p-1 bg-black/70 rounded">
