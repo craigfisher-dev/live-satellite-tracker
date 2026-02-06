@@ -1,11 +1,12 @@
-// src/components/Legend.tsx
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { filterByNetwork, filterByAltitude, setActiveFilter } from '../utils/SatelliteFilter'
 import * as Cesium from 'cesium'
 
 const filters = [
   {
     title: 'Network',
+    filterFn: filterByNetwork,
     items: [
       { label: 'Starlink', color: Cesium.Color.DODGERBLUE },
       { label: 'OneWeb', color: Cesium.Color.LIMEGREEN },
@@ -18,16 +19,17 @@ const filters = [
       { label: 'Beidou', color: Cesium.Color.GOLD },
       { label: 'Qianfan', color: Cesium.Color.PURPLE },
       { label: 'Planet', color: Cesium.Color.TOMATO },
-      { label: 'Other', color: Cesium.Color.GRAY },
+      { label: 'Other', color: Cesium.Color.GREY },
     ]
   },
   {
     title: 'Altitude',
+    filterFn: filterByAltitude,
     items: [
-      { label: 'LEO (< 2,000 km)', color: Cesium.Color.BLUE },
-      { label: 'MEO (2,000 - 35,000 km)', color: Cesium.Color.GREEN },
-      { label: 'GEO (~35,786 km)', color: Cesium.Color.YELLOW },
-      { label: 'HEO (> 36,000 km)', color: Cesium.Color.RED },
+      { label: 'LEO (< 2,000 km)', color: Cesium.Color.DODGERBLUE },
+      { label: 'MEO (2,000 - 35,000 km)', color: Cesium.Color.LIMEGREEN },
+      { label: 'GEO (~35,786 km)', color: Cesium.Color.TOMATO },
+      { label: 'HEO (> 36,000 km)', color: Cesium.Color.DARKMAGENTA },
     ]
   },
 ]
@@ -38,12 +40,17 @@ export default function Legend() {
   const totalPages = filters.length
   const currentFilter = filters[currentPage]
 
+  function switchTo(newPage: number) {
+    setCurrentPage(newPage)
+    setActiveFilter(filters[newPage].filterFn)
+  }
+
   function handlePrev() {
-    setCurrentPage(prev => prev === 0 ? totalPages - 1 : prev - 1)
+    switchTo(currentPage === 0 ? totalPages - 1 : currentPage - 1)
   }
 
   function handleNext() {
-    setCurrentPage(prev => prev === totalPages - 1 ? 0 : prev + 1)
+    switchTo(currentPage === totalPages - 1 ? 0 : currentPage + 1)
   }
 
   return (
@@ -56,25 +63,20 @@ export default function Legend() {
       fontSize: '13px',
       minWidth: '180px',
     }}>
-      {/* Header with navigation */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
         <button onClick={handlePrev} className="p-1 bg-black/70 rounded">
           <ChevronLeft className="w-4 h-4 text-white" />
         </button>
-        
         <span style={{ fontWeight: 'bold' }}>{currentFilter.title}</span>
-        
         <button onClick={handleNext} className="p-1 bg-black/70 rounded">
           <ChevronRight className="w-4 h-4 text-white" />
         </button>
       </div>
 
-      {/* Page indicator */}
       <div style={{ textAlign: 'center', fontSize: '11px', color: '#aaa', marginBottom: '8px' }}>
         {currentPage + 1} / {totalPages}
       </div>
 
-      {/* Legend items */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
         {currentFilter.items.map((item) => (
           <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

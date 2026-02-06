@@ -50,7 +50,7 @@ function App() {
     })
 
     // Show FPS counter in the top-left
-    viewer.scene.debugShowFramesPerSecond = true
+    // viewer.scene.debugShowFramesPerSecond = true
 
 
     // Loads in .env MapTiler Key

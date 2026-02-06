@@ -1,7 +1,7 @@
 import * as Cesium from 'cesium'
 import * as satellite from 'satellite.js'
 import { fetchSatelliteData } from './satelliteCache'
-import { SatelliteFilterByName } from './SatelliteFilter'
+import { getActiveFilter, onFilterChange } from './SatelliteFilter'
 
 export async function Satellite(viewer: Cesium.Viewer) {
 
@@ -20,7 +20,8 @@ export async function Satellite(viewer: Cesium.Viewer) {
   const orbitalPredictionPaths = viewer.scene.primitives.add(new Cesium.PolylineCollection())
 
   // Store satrecs, points, and labels together
-  const satellites: { satrec: satellite.SatRec, point: Cesium.PointPrimitive, orbitalPredictionPath: Cesium.Polyline, meanMotion: number }[] = []
+  // Added omm to store the raw data for recoloring later
+  const satellites: { satrec: satellite.SatRec, point: Cesium.PointPrimitive, orbitalPredictionPath: Cesium.Polyline, meanMotion: number, omm: any }[] = []
 
   // Map points to satellites for click detection
   const pointToSatellite = new Map<Cesium.PointPrimitive, typeof satellites[0]>()
@@ -43,7 +44,7 @@ export async function Satellite(viewer: Cesium.Viewer) {
     point = pointCollection.add({
       position: Cesium.Cartesian3.ZERO,
       pixelSize: 3,
-      color: SatelliteFilterByName(omm),
+      color: getActiveFilter()(omm),
       scaleByDistance: new Cesium.NearFarScalar(1e6, 2, 1e8, 0.5)
     })
     
@@ -55,7 +56,7 @@ export async function Satellite(viewer: Cesium.Viewer) {
       material: Cesium.Material.fromType('Color', { color: Cesium.Color.YELLOW })
     })
 
-    const sat = { satrec, point, orbitalPredictionPath, meanMotion: omm.MEAN_MOTION }
+    const sat = { satrec, point, orbitalPredictionPath, meanMotion: omm.MEAN_MOTION, omm }
     satellites.push(sat)
     pointToSatellite.set(point, sat)
   }
@@ -63,6 +64,14 @@ export async function Satellite(viewer: Cesium.Viewer) {
   console.timeEnd('Create satellite objects')
 
   console.timeEnd('Total Satellite init')
+
+  // When filter changes, recolor all points
+  onFilterChange(() => {
+    const filter = getActiveFilter()
+    for (const sat of satellites) {
+      sat.point.color = filter(sat.omm)
+    }
+  })
 
   // Function to calculate orbit for a satellite
   function calculateOrbit(sat: typeof satellites[0]) {
