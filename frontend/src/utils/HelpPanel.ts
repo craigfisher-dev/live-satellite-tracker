@@ -18,36 +18,61 @@ export function setupHelpPanel(viewer: Cesium.Viewer) {
       const detailElements = clickHelp.querySelectorAll('.cesium-navigation-help-details')
       
       titleElements.forEach(el => {
-        (el as HTMLElement).style.fontSize = '12px'
+        (el as HTMLElement).style.fontSize = '11px'
       })
       
       detailElements.forEach(el => {
-        (el as HTMLElement).style.fontSize = '11px'
+        (el as HTMLElement).style.fontSize = '10px'
       })
     }
     
     // Check if we already added the custom sections
     if (clickHelp && !clickHelp.querySelector('.custom-help-content')) {
-      const cameraTitle = document.createElement('div')
-      cameraTitle.style.cssText = 'font-weight: bold; margin-bottom: 4px; font-size: 16px; text-align: center; color: white; padding-top: 6px;'
-      cameraTitle.textContent = 'Camera Controls'
-      clickHelp.insertBefore(cameraTitle, clickHelp.firstChild)
+    const cameraTitle = document.createElement('div')
+    cameraTitle.style.cssText = 'font-weight: bold; margin-bottom: -2px; font-size: 12px; text-align: center; color: white; padding-top: 4px;'
+    cameraTitle.textContent = 'Camera Controls'
+    clickHelp.insertBefore(cameraTitle, clickHelp.firstChild)
 
-      // Add home button row to existing Cesium camera table
-      const cameraTable = clickHelp.querySelector('table tbody')
-      if (cameraTable) {
-        const homeRow = document.createElement('tr')
-        homeRow.innerHTML = `
-          <td style="text-align: center; vertical-align: middle;"><img src="/cesium/Widgets/Images/NavigationHelp/MouseLeft.svg" width="48" height="48"></td>
-          <td>
-            <div class="cesium-navigation-help-pan" style="font-size: 12px;">Reset camera</div>
-            <div class="cesium-navigation-help-details" style="font-size: 11px;">Click home button (top-right)</div>
-          </td>
+    // Replace the entire Cesium camera table with our custom one
+    const oldTable = clickHelp.querySelector('table')
+    if (oldTable) {
+        const newTable = document.createElement('table')
+        newTable.innerHTML = `
+        <tbody>
+            <tr>
+            <td><img src="/cesium/Widgets/Images/NavigationHelp/MouseLeft.svg" width="40" height="40"></td>
+            <td>
+                <div class="cesium-navigation-help-pan" style="font-size: 11px;">Pan view</div>
+                <div class="cesium-navigation-help-details" style="font-size: 10px;">Left click + drag</div>
+            </td>
+            </tr>
+            <tr>
+            <td><img src="/cesium/Widgets/Images/NavigationHelp/MouseMiddle.svg" width="40" height="40"></td>
+            <td>
+                <div class="cesium-navigation-help-zoom" style="font-size: 11px;">Zoom view</div>
+                <div class="cesium-navigation-help-details" style="font-size: 10px;">Mouse wheel scroll</div>
+            </td>
+            </tr>
+            <tr>
+            <td><img src="/cesium/Widgets/Images/NavigationHelp/MouseMiddle.svg" width="40" height="40"></td>
+            <td>
+                <div class="cesium-navigation-help-rotate" style="font-size: 11px;">Rotate view</div>
+                <div class="cesium-navigation-help-details" style="font-size: 10px;">Middle click + drag</div>
+            </td>
+            </tr>
+            <tr>
+            <td><img src="/cesium/Widgets/Images/NavigationHelp/MouseLeft.svg" width="40" height="40"></td>
+            <td>
+                <div class="cesium-navigation-help-pan" style="font-size: 11px;">Reset camera</div>
+                <div class="cesium-navigation-help-details" style="font-size: 10px;">Click home button (top-right)</div>
+            </td>
+            </tr>
+        </tbody>
         `
-        cameraTable.appendChild(homeRow)
-      }
-      
-      addCustomContent(clickHelp)
+        oldTable.replaceWith(newTable)
+    }
+    
+    addCustomContent(clickHelp)
     }
 
     // Rename the home button tooltip
@@ -64,23 +89,51 @@ export function setupHelpPanel(viewer: Cesium.Viewer) {
       helpPanel.style.scrollbarWidth = 'none'
       ;(helpPanel.style as any).msOverflowStyle = 'none'
       
-      const style = document.createElement('style')
-      style.textContent = `
-        .cesium-navigation-help::-webkit-scrollbar {
-          display: none;
-        }
-        /* Hide touch tab — desktop only for now.
-           TODO: Add mobile/touch support in the future with responsive
-           layout and touch-friendly custom sections. */
-        .cesium-navigation-button-right {
-          display: none !important;
-        }
-        .cesium-navigation-button-left {
-          border-right: none !important;
-          width: 100% !important;
-          padding: 8px 12px !important;
-        }
-      `
+    const style = document.createElement('style')
+    style.textContent = `
+    .cesium-navigation-help {
+        max-width: 225px !important;
+        background: rgba(0, 0, 0, 0.8) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 0.75rem !important;
+    }
+    .cesium-navigation-help::-webkit-scrollbar {
+        display: none;
+    }
+    /* Style the tab button */
+    .cesium-navigation-button-left {
+        border-right: none !important;
+        width: 100% !important;
+        padding: 8px 12px !important;
+        background: rgba(0, 0, 0, 0.8) !important;
+        border: none !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+    /* Hide touch tab — desktop only for now.
+        TODO: Add mobile/touch support in the future with responsive
+        layout and touch-friendly custom sections. */
+    .cesium-navigation-button-right {
+        display: none !important;
+    }
+    /* Style the content area */
+    .cesium-click-navigation-help {
+        background: rgba(0, 0, 0, 0.8) !important;
+        border: none !important;
+    }
+    /* Remove all default Cesium table borders */
+    .cesium-click-navigation-help table {
+        border: none !important;
+    }
+    .cesium-click-navigation-help table td {
+        border: none !important;
+    }
+    /* Make all camera control labels blue */
+    .cesium-navigation-help-pan,
+    .cesium-navigation-help-zoom,
+    .cesium-navigation-help-rotate {
+        color: #60a5fa !important;
+    }
+    `
       document.head.appendChild(style)
       
       helpPanel.addEventListener('click', (e) => {
@@ -95,7 +148,7 @@ export function setupHelpPanel(viewer: Cesium.Viewer) {
 function addCustomContent(container: Element) {
   const customContent = document.createElement('div')
   customContent.className = 'custom-help-content'
-  customContent.style.cssText = 'padding-top: 6px; padding-bottom: 6px;'
+  customContent.style.cssText = 'padding-top: 4px; padding-bottom: 4px;'
   
   const isWideScreen = window.innerWidth >= 768
 
@@ -111,16 +164,16 @@ function addCustomContent(container: Element) {
 
   const createIconRow = (iconSvg: string, title: string, description: string) => {
     const row = document.createElement('div')
-    row.style.cssText = 'display: flex; align-items: center; gap: 6px; margin-bottom: 4px;'
+    row.style.cssText = 'display: flex; align-items: center; gap: 4px; margin-bottom: 2px;'
     
     const iconContainer = document.createElement('div')
-    iconContainer.style.cssText = 'min-width: 24px; display: flex; align-items: center; justify-content: center;'
-    iconContainer.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconSvg}</svg>`
+    iconContainer.style.cssText = 'min-width: 18px; display: flex; align-items: center; justify-content: center; padding-left: 9px; padding-right: 9px;'
+    iconContainer.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconSvg}</svg>`
     
     const textContainer = document.createElement('div')
     textContainer.innerHTML = `
-      <div style="color: rgba(255, 255, 255, 0.9); font-size: 12px;">${title}</div>
-      <div style="color: rgba(255, 255, 255, 0.5); font-size: 11px;">${description}</div>
+      <div style="color: rgba(255, 255, 255, 0.9); font-size: 11px;">${title}</div>
+      <div style="color: rgba(255, 255, 255, 0.5); font-size: 10px;">${description}</div>
     `
     
     row.appendChild(iconContainer)
@@ -130,23 +183,23 @@ function addCustomContent(container: Element) {
 
   // Satellite Orbits Section
   const satelliteSection = document.createElement('div')
-  satelliteSection.style.cssText = 'border-top: 1px solid rgba(255, 255, 255, 0.2); margin-top: 6px; padding-top: 6px;'
+  satelliteSection.style.cssText = 'border-top: 1px solid rgba(255, 255, 255, 0.2); margin-top: 4px; padding-top: 4px;'
   satelliteSection.innerHTML = `
-    <div style="font-weight: bold; margin-bottom: 4px; font-size: 14px; text-align: center; color: white;">Satellite Orbit Selection</div>
+    <div style="font-weight: bold; margin-bottom: -2px; font-size: 12px; text-align: center; color: white;">Satellite Orbit Selection</div>
     <table>
       <tbody>
         <tr>
-          <td style="text-align: center; vertical-align: middle;"><img src="/cesium/Widgets/Images/NavigationHelp/MouseLeft.svg" width="48" height="48"></td>
+          <td style="text-align: center; vertical-align: middle;"><img src="/cesium/Widgets/Images/NavigationHelp/MouseLeft.svg" width="40" height="40"></td>
           <td>
-            <div class="cesium-navigation-help-pan" style="font-size: 12px;">View orbit</div>
-            <div class="cesium-navigation-help-details" style="font-size: 11px;">Left click satellite</div>
+            <div class="cesium-navigation-help-pan" style="font-size: 11px;">View orbit</div>
+            <div class="cesium-navigation-help-details" style="font-size: 10px;">Left click satellite</div>
           </td>
         </tr>
         <tr>
-          <td style="text-align: center; vertical-align: middle;"><img src="/cesium/Widgets/Images/NavigationHelp/MouseLeft.svg" width="48" height="48"></td>
+          <td style="text-align: center; vertical-align: middle;"><img src="/cesium/Widgets/Images/NavigationHelp/MouseLeft.svg" width="40" height="40"></td>
           <td>
-            <div class="cesium-navigation-help-pan" style="font-size: 12px;">Clear selection</div>
-            <div class="cesium-navigation-help-details" style="font-size: 11px;">Left click empty space</div>
+            <div class="cesium-navigation-help-pan" style="font-size: 11px;">Clear selection</div>
+            <div class="cesium-navigation-help-details" style="font-size: 10px;">Left click empty space</div>
           </td>
         </tr>
       </tbody>
@@ -155,11 +208,11 @@ function addCustomContent(container: Element) {
 
   // Time Controls Section
   const timeSection = document.createElement('div')
-  timeSection.style.cssText = 'border-top: 1px solid rgba(255, 255, 255, 0.2); margin-top: 6px; padding-top: 6px;'
+  timeSection.style.cssText = 'border-top: 1px solid rgba(255, 255, 255, 0.2); margin-top: 4px; padding-top: 4px;'
   
   const timeTitle = document.createElement('div')
-  timeTitle.style.cssText = 'font-weight: bold; margin-bottom: 4px; font-size: 14px; text-align: center; color: white;'
-  timeTitle.textContent = isWideScreen ? 'Time Controls (Bottom-Right)' : 'Time Controls'
+  timeTitle.style.cssText = 'font-weight: bold; margin-bottom: 2px; font-size: 12px; text-align: center; color: white;'
+  timeTitle.textContent = isWideScreen ? 'Time Controls' : 'Time Controls'
   
   const timeControls = document.createElement('div')
   timeControls.appendChild(createIconRow(icons.fastForwardReverse, 'Slow down', 'Decrease simulation speed'))
@@ -168,12 +221,12 @@ function addCustomContent(container: Element) {
   timeControls.appendChild(createIconRow(icons.rotateCcw, 'Reset', 'Return to current time (1x speed)'))
   
   const speedRow = document.createElement('div')
-  speedRow.style.cssText = 'display: flex; align-items: center; gap: 6px; margin-bottom: 4px;'
+  speedRow.style.cssText = 'display: flex; align-items: center; gap: 4px; margin-bottom: 2px;'
   speedRow.innerHTML = `
-    <div style="min-width: 24px; text-align: center; font-weight: bold; color: rgba(255, 255, 255, 0.7); font-size: 12px;">1x</div>
+    <div style="min-width: 36px; text-align: center; font-weight: bold; color: rgba(255, 255, 255, 0.7); font-size: 11px;">1x</div>
     <div>
-      <div style="color: rgba(255, 255, 255, 0.9); font-size: 12px;">Speed indicator</div>
-      <div style="color: rgba(255, 255, 255, 0.5); font-size: 11px;">Current simulation speed</div>
+      <div style="color: rgba(255, 255, 255, 0.9); font-size: 11px;">Speed indicator</div>
+      <div style="color: rgba(255, 255, 255, 0.5); font-size: 10px;">Current simulation speed</div>
     </div>
   `
   timeControls.appendChild(speedRow)
@@ -183,11 +236,11 @@ function addCustomContent(container: Element) {
 
   // Filter Controls Section
   const filterSection = document.createElement('div')
-  filterSection.style.cssText = 'border-top: 1px solid rgba(255, 255, 255, 0.2); margin-top: 6px; padding-top: 6px;'
+  filterSection.style.cssText = 'border-top: 1px solid rgba(255, 255, 255, 0.2); margin-top: 4px; padding-top: 4px;'
   
   const filterTitle = document.createElement('div')
-  filterTitle.style.cssText = 'font-weight: bold; margin-bottom: 4px; font-size: 14px; text-align: center; color: white;'
-  filterTitle.textContent = isWideScreen ? 'Filter Controls (Top-Left)' : 'Filter Controls'
+  filterTitle.style.cssText = 'font-weight: bold; margin-bottom: 2px; font-size: 12px; text-align: center; color: white;'
+  filterTitle.textContent = isWideScreen ? 'Filter Controls' : 'Filter Controls'
   
   const filterControls = document.createElement('div')
   filterControls.appendChild(createIconRow(icons.chevronLeft, 'Previous filter', 'Altitude ← Network'))
@@ -198,9 +251,9 @@ function addCustomContent(container: Element) {
 
   // Help Panel Control
   const helpControl = document.createElement('div')
-  helpControl.style.cssText = 'border-top: 1px solid rgba(255, 255, 255, 0.2); margin-top: 6px; padding-top: 6px;'
+  helpControl.style.cssText = 'border-top: 1px solid rgba(255, 255, 255, 0.2); margin-top: 4px; padding-top: 4px;'
   helpControl.innerHTML = `
-    <div style="font-size: 11px; color: rgba(255, 255, 255, 0.6); text-align: center;">
+    <div style="font-size: 10px; color: rgba(255, 255, 255, 0.6); text-align: center;">
       Click the <strong>?</strong> button to close/reopen this panel
     </div>
   `
