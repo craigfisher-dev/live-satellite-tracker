@@ -44,16 +44,40 @@ Satellites appear as colored dots on a 3D Earth globe. Click any satellite to vi
 - Natural Earth (GeoJSON country borders)
 - MapTiler + OpenStreetMap (map imagery)
 
+
 ## Data Processing
 
+**Data Fetching & Caching**
 - Fetches TLE orbital data from CelesTrak API in OMM JSON format for all active satellites
-- Vercel Edge Function trims payload by 60% (removes unnecessary fields)
-- Dual-layer caching: Vercel CDN (24hr) + IndexedDB (24hr browser cache)
-- SGP4 orbital propagation algorithm calculates real-time positions
-- Coordinate conversion from ECI (Earth-Centered Inertial) to ECEF (Earth-Centered Earth-Fixed) using GMST
-- Kepler's Third Law calculations derive altitude from mean motion
-- Orbital prediction samples 90 points across one complete revolution
-- Performance optimized: 14,000+ satellites rendered in 2 GPU draw calls using Cesium primitive collections
+- Vercel Edge Function trims payload by ~50%, keeping only fields required for satellite.js propagation
+- Dual-layer caching strategy: Vercel CDN (24hr) + IndexedDB (24hr browser cache)
+- Fallback hierarchy: fresh IndexedDB → Vercel Edge/API → stale IndexedDB if network fails
+
+**Orbital Calculations**
+- SGP4 orbital propagation algorithm calculates real-time satellite positions at 60 FPS
+- Coordinate conversion: ECI (Earth-Centered Inertial) → ECEF (Earth-Centered Earth-Fixed) using GMST (Greenwich Mean Sidereal Time)
+- Orbital paths displayed relative to rotating Earth create varying visual patterns:
+  - **LEO (Low Earth Orbit)**: Complete one orbit in ~90 minutes, appearing as single clean loops
+  - **MEO (Medium Earth Orbit)**: 2-24 hour orbits create multiple visual wraps as Earth rotates
+  - **GEO (Geostationary)**: Complete one orbit in 24 hours (matching Earth's rotation), appearing nearly stationary
+  - **HEO (Highly Elliptical)**: Elliptical orbits create complex wrapped patterns
+- Satellite altitude derived from orbital speed using Kepler's Third Law
+- Each orbital path uses 90 calculated future positions
+
+**Rendering Optimization**
+- Entire scene rendered in just 3 GPU draw calls using Cesium primitive collections:
+  - All 14,000+ satellite points (PointPrimitiveCollection)
+  - Satellite orbital paths (PolylineCollection)
+  - Country borders (PolylineCollection)
+- Reusable Cartesian3 scratch variables minimize garbage collection
+- Request render mode: Cesium only re-renders when scene changes
+- Dynamic recoloring on filter change without recreating primitives
+
+**Geospatial Processing**
+- Natural Earth GeoJSON country borders parsed into polyline collections
+- Single material instance reused across all country borders for performance
+- MapTiler provides OpenStreetMap imagery via Cesium UrlTemplateImageryProvider
+- Country border polylines rendered 1000m above surface to prevent z-fighting
 
 ## Controls
 
