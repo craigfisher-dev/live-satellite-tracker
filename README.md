@@ -81,8 +81,23 @@ Satellites appear as colored dots on a 3D Earth globe. Click any satellite to vi
 
 ## Controls
 
-**Top-Right Buttons**: Home button (reset camera view) • ? button (open/close controls guide)  
-**Camera**: Left-click drag (pan) • Middle-click drag (rotate) • Scroll (zoom)  
-**Satellites**: Click satellite (show predicted orbit) • Click empty space (clear selection)  
-**Filters**: Arrow buttons (switch Network ↔ Altitude)  
-**Time**: Play/Pause • Fast forward/rewind • Reset to current time
+**Top-Right Buttons**
+- Home button resets camera to default view
+- ? button toggles controls guide visibility
+
+**Camera Navigation**
+- Left-click drag to pan across the globe
+- Middle-click drag to rotate the camera view
+- Scroll wheel to zoom in/out
+
+**Satellite Interaction**
+- Click any satellite to display its predicted orbital path
+- Click empty space to clear the current selection
+
+**Color Filters**
+- Arrow buttons toggle between Network mode (color by constellation) and Altitude mode (color by orbital height)
+
+**Time Controls**
+- Play/Pause button controls simulation
+- Fast forward/rewind buttons adjust simulation speed (-1000x to +1000x)
+- Reset button returns to current real-time
