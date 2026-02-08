@@ -7,34 +7,46 @@ Real-time 3D visualization of 14,000+ active satellites orbiting Earth. Click an
 ## Features
 
 - Real-time tracking of 14,000+ satellites on interactive 3D globe
-- Predicted orbital trajectory visualization on satellite selection
-- Filter satellites by network (Starlink, OneWeb, GPS, etc.) or altitude (LEO, MEO, GEO)
-- Time controls: pause, speed up (1000x), or reverse simulation time
-- Day/night Earth shading based on sun position
-- Persistent browser caching with 24-hour refresh cycle
+- Click any satellite to view its predicted orbital path
+- Control simulation time: pause, play, or adjust speed (-1000x to +1000x)
+- Realistic Earth lighting and shading with day/night cycles
+- Full Earth map imagery from OpenStreetMap and MapTiler
+- Complete 3D camera navigation with pan, rotate, and zoom
+- Optimized performance with IndexedDB and Vercel Edge caching
+- Toggle between network-based or altitude-based color coding
+- Glowing neon country borders rendered from GeoJSON data
 
 ## How It Works
 
-Satellites appear as colored dots on a 3D Earth globe. Click any satellite to display its predicted orbital path for one complete orbit. The color coding changes based on the active filter - either by satellite network/constellation or by orbital altitude. Time can be sped up to watch satellites move faster, paused to examine positions, or reversed to view past orbital states.
+Satellites appear as colored dots on a 3D Earth globe. Click any satellite to view its predicted orbital trajectory for one complete revolution ahead. Toggle between two color modes: network mode colors satellites by constellation (Starlink, OneWeb, GPS, etc.), while altitude mode colors them by orbital height from Earth (LEO, MEO, GEO). Time starts at real-time (1x speed) and can be paused, reversed, or accelerated up to 1000x in either direction to watch orbital motion.
 
 <img width="7680" height="4320" alt="live-satellite-tracker vercel app_(High Res) (1)" src="https://github.com/user-attachments/assets/a45a5137-0491-4e1f-afbe-aeb14403189a" />
 
-*Screenshot showing real-time satellite tracking with orbital path visualization*
+*Screenshot showing OneWeb satellite with predicted orbital path visualization*
 
 ## Tech Stack
 
-- **Frontend**: React 19, TypeScript
-- **Build Tool**: Vite
-- **3D Engine**: CesiumJS (globe rendering, coordinate systems)
-- **Styling**: Tailwind CSS
-- **Backend**: Vercel Edge Functions (serverless API)
-- **Database**: IndexedDB (browser storage)
-- **Hosting**: Vercel
-- **Data Source**: CelesTrak (TLE orbital data)
+**Frontend**
+- React, TypeScript, Vite
+- CesiumJS (3D globe rendering)
+- satellite.js (SGP4 orbital propagation)
+- Tailwind CSS, inline CSS
+
+**Backend**
+- Vercel Edge Functions (TypeScript serverless API)
+
+**Data Storage & Caching**
+- IndexedDB (browser database)
+- Vercel CDN (edge cache)
+
+**Data Sources**
+- CelesTrak (TLE orbital data)
+- Natural Earth (GeoJSON country borders)
+- MapTiler + OpenStreetMap (map imagery)
 
 ## Data Processing
 
-- Fetches Two-Line Element (TLE) data from CelesTrak API for all active satellites
+- Fetches TLE orbital data from CelesTrak API in OMM JSON format for all active satellites
 - Vercel Edge Function trims payload by 60% (removes unnecessary fields)
 - Dual-layer caching: Vercel CDN (24hr) + IndexedDB (24hr browser cache)
 - SGP4 orbital propagation algorithm calculates real-time positions
