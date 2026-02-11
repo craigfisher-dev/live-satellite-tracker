@@ -56,23 +56,16 @@ function App() {
     // Setup the custom help panel
     setupHelpPanel(viewer)
 
-    // Loads in .env TomTom Key
-    // TomTom provides 50K free tiles/day with English labels and a usage dashboard
-    // API key is stored in .env as VITE_MY_TOM_TOM_KEY (VITE_ prefix required for client access)
-    const TOMTOM_KEY = import.meta.env.VITE_MY_TOM_TOM_KEY
+    // Loads in .env MapTiler Key
+    const MAP_TILER_KEY = import.meta.env.VITE_MAP_TILER_KEY
 
-    const tomtom = new Cesium.UrlTemplateImageryProvider({
-      url: `https://api.tomtom.com/map/1/tile/basic/main/{z}/{x}/{y}.png?key=${TOMTOM_KEY}&language=en-GB`,
-      credit: '© TomTom',
+    // MapTiler provides OpenStreetMap data with customizable language labels
+    // API key is stored in .env as VITE_MAP_TILER_KEY (VITE_ prefix required for client access)
+    const mapTiler = new Cesium.UrlTemplateImageryProvider({
+      url: `https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.jpg?key=${MAP_TILER_KEY}`,
+      credit: '© MapTiler © OpenStreetMap contributors'
     })
-
-    // Suppress tile error logs so API key doesn't leak to console
-    tomtom.errorEvent.addEventListener((err: any) => {
-      const safeMessage = String(err).replace(/key=[^&]+/, 'key=***')
-      console.warn('Tile load failed:', safeMessage)
-    })
-
-    viewer.imageryLayers.addImageryProvider(tomtom)
+    viewer.imageryLayers.addImageryProvider(mapTiler)
 
     // Enable day/night shading based on sun position
     // The dark side of Earth will actually look dark
