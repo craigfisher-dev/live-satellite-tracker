@@ -56,16 +56,15 @@ function App() {
     // Setup the custom help panel
     setupHelpPanel(viewer)
 
-    // Loads in .env MapTiler Key
-    const MAP_TILER_KEY = import.meta.env.VITE_MAP_TILER_KEY
 
-    // MapTiler provides OpenStreetMap data with customizable language labels
-    // API key is stored in .env as VITE_MAP_TILER_KEY (VITE_ prefix required for client access)
-    const mapTiler = new Cesium.UrlTemplateImageryProvider({
-      url: `https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.jpg?key=${MAP_TILER_KEY}`,
-      credit: '© MapTiler © OpenStreetMap contributors'
+    const carto = new Cesium.UrlTemplateImageryProvider({
+      url: 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+      credit: '© OpenStreetMap contributors © CARTO'
     })
-    viewer.imageryLayers.addImageryProvider(mapTiler)
+    viewer.imageryLayers.addImageryProvider(carto)
+
+    // Start with high detail for globe view on load
+    viewer.scene.globe.maximumScreenSpaceError = 1
 
     // Enable day/night shading based on sun position
     // The dark side of Earth will actually look dark
