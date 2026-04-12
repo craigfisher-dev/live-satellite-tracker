@@ -1,7 +1,5 @@
 # Satellite Profiles — Feature Branch Plan
 
-> Preview this file in VS Code with Ctrl+Shift+V
-
 Branch: `satellite-profiles`
 
 Adds a satellite info panel to the existing tracker. Click any satellite and a panel slides out showing real metadata — name, owner, country, purpose, launch date, status, and a photo where available.
@@ -45,32 +43,21 @@ Nothing in the existing tracker changes. This is purely additive.
 
 ## How it connects to the existing tracker
 
-```
-existing (unchanged)
-    CesiumJS frontend → Vercel Edge Functions (TS) → CelesTrak → IndexedDB
+**Existing pipeline (unchanged)**
+- CesiumJS frontend → Vercel Edge Functions (TS) → CelesTrak → IndexedDB
+- TLE fetching, orbital paths, time controls, globe rendering — untouched
 
-new — additive only
-    app loads
-        → bulk fetch all satellite profiles from FastAPI in the background
-        → store everything in IndexedDB (24hr cache)
-        → user clicks satellite → instant, served from IndexedDB, no network call
+**Satellite profiles — additive only**
+- Bulk fetches all satellite profiles from FastAPI on app load
+- Stores everything in IndexedDB with a 24hr cache
+- Clicking a satellite serves the profile instantly from IndexedDB — no network call
+- Fallback hierarchy: fresh IndexedDB → Vercel edge cache → FastAPI → Neon Postgres → stale IndexedDB if network fails
 
-    IndexedDB miss (first load or cache expired)
-        → Vercel edge cache
-        → miss → FastAPI /api/satellite/{norad_id}
-        → Neon Postgres
-        → return JSON → save to IndexedDB → render info panel
-
-background
-    Kubernetes CronJob → Docker container → Python worker
-        → Space-Track API (TLEs + SATCAT metadata)
-        → Wikipedia API (photos)
-        → write to Neon Postgres
-```
-
-Same caching pattern as the existing tracker — bulk fetch on load, IndexedDB first, network as fallback, stale data if everything fails.
-
-**How data is matched:** NORAD ID (catalog number) is the universal identifier used by Space-Track, CelesTrak, and UCS. Every satellite in the existing tracker already has a NORAD ID from the TLE data. The worker joins all data sources on NORAD ID when writing to Neon. The frontend passes the NORAD ID when fetching a profile — everything links up with no ambiguity.
+**Background worker**
+- Kubernetes CronJob triggers Docker container on schedule
+- Fetches fresh SATCAT data from Space-Track and photos from Wikipedia
+- All sources joined on NORAD ID — universal satellite identifier across Space-Track, CelesTrak, and UCS
+- Writes enriched records to Neon Postgres
 
 ---
 
@@ -90,10 +77,14 @@ No public database has descriptions for all 14,000+ objects. The panel only show
 
 Something to keep in mind but not worry about. Here's why it's fine:
 
+## Neon free tier — 100 CU-hours/month
+
+Something to keep in mind but not worry about. Here's why it's fine:
+
 - Neon scales to zero when idle — only burns CU-hours when actively running a query
 - All satellite profiles are bulk fetched on app load and stored in IndexedDB — Neon only wakes up once per day when the cache expires, not on every click
 - IndexedDB and Vercel edge cache catch most requests before they ever hit Neon
-- The worker runs in short bursts (a few seconds) once per hour — barely registers
+- The worker runs in short bursts (a few seconds) once per day for SATCAT — barely registers
 - A project with 50-100 concurrent users hitting the DB all day only used ~25 CU-hours over 5 days
 
 Just make sure nothing polls the API in the background and the DB will scale to zero between requests. The caching layer does the heavy lifting — Neon is just the source of truth that rarely gets touched directly.
@@ -102,16 +93,19 @@ Just make sure nothing polls the API in the background and the DB will scale to 
 
 
 
+## Space-Track rate limits
+
 Must follow these or the account gets flagged.
 
 | Data | Frequency | Notes |
 |---|---|---|
-| GP (TLEs) | 1/hour | Pick a random minute, not top/bottom of hour |
 | SATCAT | 1/day | After 1700 UTC. Has names, countries, object types |
 | CDM (conjunctions) | 3/day | Future feature, not this update |
 | DECAY | 1/day | Store locally, never re-download |
 
-Worker only needs **GP + SATCAT** for now.
+Worker only needs **SATCAT** for now. TLEs stay with CelesTrak — no change to existing pipeline.
+
+**Important:** all satellites must be fetched in a single batch query — not one request per satellite. Space-Track explicitly requires combining multiple objects into one comma-delimited request. Sending hundreds of individual queries will get the account suspended.
 
 ---
 
@@ -206,19 +200,19 @@ live-satellite-tracker/
 
 ```sql
 CREATE TABLE satellites (
-    norad_id      INTEGER PRIMARY KEY,
-    name          TEXT,
-    owner         TEXT,
-    country       TEXT,
-    purpose       TEXT,
-    description   TEXT,        -- nullable, only shown if known
-    launch_date   DATE,
-    status        TEXT,        -- 'active', 'defunct', 'debris'
-    object_type   TEXT,        -- 'PAYLOAD', 'ROCKET BODY', 'DEBRIS'
-    image_url     TEXT,        -- nullable
-    image_source  TEXT,        -- 'wikipedia', 'nasa', 'illustration'
-    tle_line1     TEXT,
-    tle_line2     TEXT,
+    norad_id      INTEGER PRIMARY KEY,  -- NORAD_CAT_ID from SATCAT, joins with CelesTrak
+    name          VARCHAR(25),          -- SATNAME from SATCAT
+    object_type   VARCHAR(12),          -- OBJECT_TYPE: PAYLOAD, ROCKET BODY, DEBRIS
+    country       CHAR(6),              -- COUNTRY code e.g. US, CN, RU
+    launch_date   DATE,                 -- LAUNCH from SATCAT
+    launch_site   CHAR(5),              -- SITE from SATCAT e.g. AFETR, TYMSC
+    decay_date    DATE,                 -- DECAY from SATCAT, null if still on orbit
+    current       CHAR(1),              -- CURRENT: Y or N
+    rcs_size      VARCHAR(6),           -- RCS_SIZE: SMALL, MEDIUM, LARGE
+    purpose       TEXT,                 -- from UCS database, nullable
+    description   TEXT,                 -- from constellation lookup table, nullable
+    image_url     TEXT,                 -- from Wikipedia/NASA, nullable
+    image_source  VARCHAR(12),          -- 'wikipedia' or 'nasa', nullable
     last_updated  TIMESTAMP
 );
 ```
@@ -237,15 +231,18 @@ Returns a single satellite profile. Used as fallback on IndexedDB miss.
 {
   "norad_id": 25544,
   "name": "ISS (ZARYA)",
-  "owner": "ISS",
-  "country": "multinational",
-  "purpose": "Space station",
-  "launch_date": "1998-11-20",
-  "status": "active",
   "object_type": "PAYLOAD",
-  "image_url": "https://...",
+  "country": "US",
+  "launch_date": "1998-11-20",
+  "launch_site": "TYMSC",
+  "decay_date": null,
+  "current": "Y",
+  "rcs_size": "LARGE",
+  "purpose": "Space station",
+  "description": "The International Space Station is a multinational research laboratory in low Earth orbit.",
+  "image_url": "https://upload.wikimedia.org/...",
   "image_source": "wikipedia",
-  "last_updated": "2026-04-11T12:00:00Z"
+  "last_updated": "2026-04-12T12:00:00Z"
 }
 ```
 
@@ -260,11 +257,16 @@ Returns a single satellite profile. Used as fallback on IndexedDB miss.
 │  ISS (ZARYA)                    │
 │  Space station · Active         │
 │                                 │
-│  Owner      ISS / Multinational │
-│  Country    Multinational       │
-│  Launched   Nov 20, 1998        │
-│  Object     Payload             │
-│  NORAD ID   25544               │
+│  The International Space Station│
+│  is a multinational research    │
+│  lab in low Earth orbit.        │
+│                                 │
+│  Country      US                │
+│  Launched     Nov 20, 1998      │
+│  Launch site  TYMSC             │
+│  Object       Payload           │
+│  Size         Large             │
+│  NORAD ID     25544             │
 │                                 │
 │  [Space-Track] [Wikipedia]      │
 └─────────────────────────────────┘
@@ -275,7 +277,7 @@ Returns a single satellite profile. Used as fallback on IndexedDB miss.
 ## Build order
 
 1. Set up Neon, run schema
-2. Build Python worker — Space-Track client, SATCAT + TLE fetch, write to DB
+2. Build Python worker — Space-Track client, SATCAT fetch, UCS CSV reader, write to DB
 3. Dockerize the worker
 4. Kubernetes CronJob manifests, test locally with Minikube
 5. FastAPI endpoint on Vercel
@@ -355,6 +357,8 @@ terraform apply       # apply changes to Vercel
 ---
 
 
+
+## Testing plan
 
 ### Unit tests (pytest)
 
