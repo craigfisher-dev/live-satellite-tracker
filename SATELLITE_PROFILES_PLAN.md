@@ -20,6 +20,7 @@ Nothing in the existing tracker changes. This is purely additive.
 - **Terraform** — manages Vercel project config and env vars as code
 - **GitHub Actions** — runs tests, builds Docker image, deploys on push
 - **pytest** — tests the API endpoints and worker logic
+- **Satellite count display** — live count of tracked satellites shown on the globe
 
 ---
 
@@ -38,7 +39,6 @@ Nothing in the existing tracker changes. This is purely additive.
 | GitHub Actions | Runs pytest on every push, builds the Docker image, pushes to Docker Hub, deploys to Vercel. |
 | pytest | Tests FastAPI endpoints and worker logic. |
 | Space-Track.org | Official US Space Surveillance Network. More complete and frequently updated than CelesTrak. Free account required. |
-| Wikipedia API | Satellite photos for notable satellites. No API key needed. |
 | TSX React component | Info panel UI in the existing frontend. |
 
 ---
@@ -52,22 +52,21 @@ Nothing in the existing tracker changes. This is purely additive.
 ---
 
 **Flow 1 — Background worker (runs independently, daily)**
- 
+
 **What worker.py does:**
 1. Log into Space-Track
 2. Download all SATCAT data (single batch query)
 3. Read `ucs_satellites.csv`
-4. Look up Wikipedia images
-5. Write everything to Neon
-6. Done, container exits
- 
+4. Write everything to Neon
+5. Done, container exits
+
 **How it runs in production:**
 - Worker code written and tested locally first (`python worker.py`)
 - GitHub Actions builds the worker code into a Docker image
 - Pushes the image to Docker Hub
 - K3s CronJob on the DigitalOcean Droplet pulls the image at 1700 UTC daily
 - Container starts, runs `worker.py`, then stops
- 
+
 Has nothing to do with users — just keeps Neon up to date.
 
 ---
@@ -101,10 +100,6 @@ No public database has descriptions for all 14,000+ objects. The panel only show
 
 ---
 
-
-
-Something to keep in mind but not worry about. Here's why it's fine:
-
 ## Neon free tier — 100 CU-hours/month
 
 Something to keep in mind but not worry about. Here's why it's fine:
@@ -118,8 +113,6 @@ Something to keep in mind but not worry about. Here's why it's fine:
 Just make sure nothing polls the API in the background and the DB will scale to zero between requests. The caching layer does the heavy lifting — Neon is just the source of truth that rarely gets touched directly.
 
 ---
-
-
 
 ## Space-Track rate limits
 
@@ -139,12 +132,31 @@ Worker only needs **SATCAT** for now. TLEs stay with CelesTrak — no change to 
 
 ## Satellite images
 
-- Wikipedia API first — free, no key, covers ISS, Hubble, GPS, Starlink, etc.
-- Fallback to a generic illustration based on satellite type (CubeSat, GEO comms, LEO imaging, debris)
-- NASA Image API is an option later if Wikipedia coverage isn't enough
-- Figuring out exact implementation during the build
+Photos are manually curated and stored in a separate `satellite_images` table in Neon. The worker never touches this table — images are managed independently.
 
-**How image storage works:** only the image URL is stored in Postgres as a text field, not the actual image. The worker finds the image on Wikipedia/NASA and saves the URL. The frontend renders it with a normal `<img src={image_url} />` — images load directly from Wikipedia/NASA's servers, nothing is stored on Vercel or Neon.
+**Coverage strategy:**
+- ISS, Hubble, James Webb, Chandra, and other notable individual satellites — unique photo each
+- Major constellations (Starlink, OneWeb, GPS, GLONASS, Galileo, Beidou, Iridium, etc.) — one shared photo per constellation, reused for every satellite in that program
+- NASA and ESA missions — photo where one exists
+- Unknown payloads, rocket bodies, debris — no image, section hidden in the panel
+
+**How it works:**
+- Images are sourced manually from NASA, ESA, and Wikimedia Commons (open license)
+- Only the image URL is stored — images load directly from the source, nothing stored on Vercel or Neon
+- New images can be added anytime by inserting a row in Neon — no redeployment needed
+- For constellations, one photo is reused across all satellites in that program
+
+**To-do:** find and insert image URLs for the main satellites and constellations before building the panel.
+
+---
+
+## Satellite count display
+
+A live count of currently tracked satellites is shown on the globe — e.g. "Tracking 14,320 satellites".
+
+- Derived from the TLE data already loaded in the frontend — no backend call needed
+- Updates automatically as TLE data loads
+- Simple text element added to the existing UI
 
 ---
 
@@ -198,7 +210,6 @@ live-satellite-tracker/
 │   ├── worker/
 │   │   ├── worker.py                    ← NEW: main script
 │   │   ├── spacetrack.py                ← NEW: Space-Track API client
-│   │   ├── wikipedia.py                 ← NEW: image fetcher
 │   │   ├── db.py                        ← NEW: SQLAlchemy models + writes
 │   │   ├── data/
 │   │   │   └── ucs_satellites.csv       ← NEW: UCS spreadsheet, updated manually
@@ -216,7 +227,7 @@ live-satellite-tracker/
 │   └── ...existing config files
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml               ← NEW: CI/CD
+│       └── deploy.yml                   ← NEW: CI/CD
 ├── .gitignore
 ├── LICENSE
 └── README.md
@@ -239,11 +250,17 @@ CREATE TABLE satellites (
     rcs_size      VARCHAR(6),           -- RCS_SIZE: SMALL, MEDIUM, LARGE
     purpose       TEXT,                 -- from UCS database, nullable
     description   TEXT,                 -- from constellation lookup table, nullable
-    image_url     TEXT,                 -- from Wikipedia/NASA, nullable
-    image_source  VARCHAR(12),          -- 'wikipedia' or 'nasa', nullable
     last_updated  TIMESTAMP
 );
+
+CREATE TABLE satellite_images (
+    norad_id      INTEGER PRIMARY KEY,  -- matches satellites.norad_id
+    image_url     TEXT NOT NULL,        -- full URL, images served directly from source
+    credit        TEXT                  -- e.g. 'NASA', 'ESA', 'Wikimedia Commons'
+);
 ```
+
+FastAPI joins the two tables on `norad_id` when serving profiles. Worker never touches `satellite_images`. Images are added manually via the Neon console.
 
 ---
 
@@ -269,7 +286,7 @@ Returns a single satellite profile. Used as fallback on IndexedDB miss.
   "purpose": "Space station",
   "description": "The International Space Station is a multinational research laboratory in low Earth orbit.",
   "image_url": "https://upload.wikimedia.org/...",
-  "image_source": "wikipedia",
+  "credit": "NASA",
   "last_updated": "2026-04-12T12:00:00Z"
 }
 ```
@@ -280,7 +297,7 @@ Returns a single satellite profile. Used as fallback on IndexedDB miss.
 
 ```
 ┌─────────────────────────────────┐
-│  [photo or illustration]        │
+│  [photo if available]           │
 │                                 │
 │  ISS (ZARYA)                    │
 │  Space station · Active         │
@@ -296,7 +313,7 @@ Returns a single satellite profile. Used as fallback on IndexedDB miss.
 │  Size         Large             │
 │  NORAD ID     25544             │
 │                                 │
-│  [Space-Track] [Wikipedia]      │
+│  [Space-Track]                  │
 └─────────────────────────────────┘
 ```
 
@@ -305,19 +322,20 @@ Returns a single satellite profile. Used as fallback on IndexedDB miss.
 ## Build order
 
 1. Set up Neon, run schema
-2. Build Python worker — Space-Track client, SATCAT fetch, UCS CSV reader, write to DB
-3. Dockerize the worker
-4. Push Docker image to Docker Hub
-5. Write Kubernetes CronJob manifests, test locally with Minikube
-6. Provision DigitalOcean Droplet via Terraform
-7. Install K3s on the Droplet
-8. Deploy Kubernetes CronJob to Droplet — worker runs in production
-9. FastAPI endpoint on Vercel
-10. `SatelliteInfoPanel.tsx` in the frontend
-11. Wikipedia image fetcher in the worker
-12. Terraform for Vercel config
-13. GitHub Actions CI/CD — builds Docker image, pushes to Docker Hub, deploys to Vercel
-14. pytest coverage for worker and API
+2. Populate `satellite_images` table — find and insert URLs for main satellites and constellations
+3. Build Python worker — Space-Track client, SATCAT fetch, UCS CSV reader, write to DB
+4. Dockerize the worker
+5. Push Docker image to Docker Hub
+6. Write Kubernetes CronJob manifests, test locally with Minikube
+7. Provision DigitalOcean Droplet via Terraform
+8. Install K3s on the Droplet
+9. Deploy Kubernetes CronJob to Droplet — worker runs in production
+10. FastAPI endpoint on Vercel
+11. `SatelliteInfoPanel.tsx` in the frontend
+12. Satellite count display in the frontend
+13. Terraform for Vercel config
+14. GitHub Actions CI/CD — builds Docker image, pushes to Docker Hub, deploys to Vercel
+15. pytest coverage for worker and API
 
 ---
 
@@ -333,6 +351,7 @@ Returns a single satellite profile. Used as fallback on IndexedDB miss.
 
 ## Future ideas
 
+- Expand image coverage beyond the initial curated set
 - Conjunction alerts using CDM data from Space-Track
 - Switch TLE source from CelesTrak to Space-Track
 - Reentry prediction panel
@@ -395,8 +414,6 @@ terraform destroy     # tear down infrastructure
 
 ---
 
-
-
 ## Testing plan
 
 ### Unit tests (pytest)
@@ -404,7 +421,6 @@ terraform destroy     # tear down infrastructure
 - Space-Track client parses response correctly
 - SATCAT data maps to DB columns correctly
 - Worker handles missing or malformed NORAD IDs
-- Wikipedia image fetcher handles no result gracefully
 - DB write logic upserts without duplicating records
 - FastAPI returns 200 with correct shape for a known NORAD ID
 - FastAPI returns 404 for an unknown NORAD ID
@@ -430,5 +446,4 @@ terraform destroy     # tear down infrastructure
 - [ ] Commit finalized plan to `satellite-profiles` branch
 - [ ] Download latest UCS satellite spreadsheet from ucsusa.org
 - [ ] Research and write descriptions for top 10-20 major constellations (Starlink, OneWeb, GPS, GLONASS, Galileo, Beidou, NOAA, Landsat, Iridium, etc.)
-- [ ] Confirm how Wikipedia API returns image URLs for a given satellite name
 - [ ] Figure out rate limiting in the worker (retry logic, random minute offsets for TLE fetches)
