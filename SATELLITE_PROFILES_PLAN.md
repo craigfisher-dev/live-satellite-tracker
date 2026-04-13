@@ -191,7 +191,7 @@ live-satellite-tracker/
 ├── frontend/                            ← existing structure, everything lives here
 │   ├── api/
 │   │   ├── satellites.ts                ← existing Vercel edge function
-│   │   └── satellites.py                ← NEW: FastAPI bulk endpoint on Vercel
+│   │   └── satellites-profiles.py         ← NEW: FastAPI bulk endpoint on Vercel
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── Clock.tsx                ← existing
@@ -266,7 +266,7 @@ FastAPI joins the two tables on `norad_id` when serving profiles. Worker never t
 ## FAST API
 
 ```
-GET /api/satellites
+GET /api/satellites-profiles
 Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB for 24hrs.
 
 {
