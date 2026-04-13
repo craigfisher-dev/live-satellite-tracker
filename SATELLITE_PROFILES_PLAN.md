@@ -191,8 +191,7 @@ live-satellite-tracker/
 ├── frontend/                            ← existing structure, everything lives here
 │   ├── api/
 │   │   ├── satellites.ts                ← existing Vercel edge function
-│   │   └── satellite/
-│   │       └── [norad_id].py            ← NEW: FastAPI endpoint on Vercel
+│   │   └── satellites.py                ← NEW: FastAPI bulk endpoint on Vercel
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── Clock.tsx                ← existing
@@ -264,14 +263,11 @@ FastAPI joins the two tables on `norad_id` when serving profiles. Worker never t
 
 ---
 
-## API
+## FAST API
 
 ```
 GET /api/satellites
 Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB for 24hrs.
-
-GET /api/satellite/{norad_id}
-Returns a single satellite profile. Used as fallback on IndexedDB miss.
 
 {
   "norad_id": 25544,
@@ -418,15 +414,14 @@ terraform destroy     # tear down infrastructure
 
 ### Unit tests (pytest)
 
-- Space-Track client parses response correctly
-- SATCAT data maps to DB columns correctly
+- Space-Track client parses SATCAT response correctly
+- SATCAT fields map to DB columns correctly
 - Worker handles missing or malformed NORAD IDs
 - DB write logic upserts without duplicating records
-- FastAPI returns 200 with correct shape for a known NORAD ID
-- FastAPI returns 404 for an unknown NORAD ID
 
 ### Integration tests (pytest)
 
+- FastAPI returns 200 with correct shape for the bulk endpoint
 - Worker fetches from Space-Track and record appears in DB
 - FastAPI reads from DB and returns correct data end to end
 - Caching layer returns cached response on second request
