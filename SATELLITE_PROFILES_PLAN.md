@@ -2,7 +2,7 @@
 
 Branch: `satellite-profiles`
 
-Adds a satellite info panel to the existing tracker. Click any satellite and a panel slides out showing real metadata — name, owner, country, purpose, launch date, status, and a photo where available.
+Adds a satellite info panel to the existing tracker. Click any satellite and a panel slides out showing real metadata — name, country, purpose, description, launch date, launch site, object type, size, and a photo where available.
 
 Nothing in the existing tracker changes. This is purely additive.
 
@@ -15,7 +15,8 @@ Nothing in the existing tracker changes. This is purely additive.
 - **SQLAlchemy** — ORM for reading and writing to Neon Postgres from both the API and worker
 - **Neon** — free serverless Postgres, stores the enriched satellite records
 - **Python worker** — scheduled script that fetches data from Space-Track and writes to the database
-- **Docker + Kubernetes** — containerizes and schedules the worker
+- **Docker + Kubernetes (K3s)** — containerizes and schedules the worker
+- **DigitalOcean Droplet** — $8/month Linux VPS where Docker and Kubernetes run, always on
 - **Terraform** — manages Vercel project config and env vars as code
 - **GitHub Actions** — runs tests, builds Docker image, deploys on push
 - **pytest** — tests the API endpoints and worker logic
@@ -31,9 +32,10 @@ Nothing in the existing tracker changes. This is purely additive.
 | Neon | Free serverless Postgres. Scales to zero when idle so it stays within free tier. No pausing. |
 | Python worker | Scheduled script that pulls from Space-Track and populates the database. |
 | Docker | Packages the worker into a container so it runs consistently anywhere. |
-| Kubernetes | Runs the worker on a schedule via CronJob. Space-Track rate limits require a persistent scheduler rather than a serverless function. |
-| Terraform | Vercel project config and environment variables defined as code — reproducible and version controlled instead of manually set in the dashboard. |
-| GitHub Actions | Runs pytest on every push, builds the Docker image, and deploys to Vercel. |
+| Kubernetes (K3s) | Runs the worker on a schedule via CronJob on the DigitalOcean Droplet. Space-Track rate limits require a persistent scheduler rather than a serverless function. |
+| DigitalOcean Droplet (Linux VPS) | $8/month always-on Ubuntu server where Docker and Kubernetes run. Fixed price, no auto-scaling, no surprise bills. 1GB RAM, 1 CPU, 35GB NVMe SSD, 1000GB transfer. Monitor via DigitalOcean dashboard or SSH (`df -h`, `free -h`, `htop`). |
+| Terraform | Manages both Vercel config and the DigitalOcean Droplet as code — reproducible infrastructure across two providers, version controlled. |
+| GitHub Actions | Runs pytest on every push, builds the Docker image, pushes to Docker Hub, deploys to Vercel. |
 | pytest | Tests FastAPI endpoints and worker logic. |
 | Space-Track.org | Official US Space Surveillance Network. More complete and frequently updated than CelesTrak. Free account required. |
 | Wikipedia API | Satellite photos for notable satellites. No API key needed. |
@@ -47,17 +49,43 @@ Nothing in the existing tracker changes. This is purely additive.
 - CesiumJS frontend → Vercel Edge Functions (TS) → CelesTrak → IndexedDB
 - TLE fetching, orbital paths, time controls, globe rendering — untouched
 
-**Satellite profiles — additive only**
+---
+
+**Flow 1 — Background worker (runs independently, daily)**
+ 
+**What worker.py does:**
+1. Log into Space-Track
+2. Download all SATCAT data (single batch query)
+3. Read `ucs_satellites.csv`
+4. Look up Wikipedia images
+5. Write everything to Neon
+6. Done, container exits
+ 
+**How it runs in production:**
+- Worker code written and tested locally first (`python worker.py`)
+- GitHub Actions builds the worker code into a Docker image
+- Pushes the image to Docker Hub
+- K3s CronJob on the DigitalOcean Droplet pulls the image at 1700 UTC daily
+- Container starts, runs `worker.py`, then stops
+ 
+Has nothing to do with users — just keeps Neon up to date.
+
+---
+
+**Flow 2 — User flow (on app load)**
 - Bulk fetches all satellite profiles from FastAPI on app load
 - Stores everything in IndexedDB with a 24hr cache
 - Clicking a satellite serves the profile instantly from IndexedDB — no network call
-- Fallback hierarchy: fresh IndexedDB → Vercel edge cache → FastAPI → Neon Postgres → stale IndexedDB if network fails
+- Fallback hierarchy:
+  1. Check IndexedDB → hit cache → stop, use it
+  2. IndexedDB missing or expired cache (24hr) → check Vercel Edge cache → hit Vercel Edge cache → stop, use it
+  3. Vercel Edge cache miss → FastAPI → Neon Postgres → return data from Neon → save to IndexedDB
+  4. Everything fails (Full Network Failure) → use stale IndexedDB data if available
+  5. No stale data (brand new user, full network failure) → show error message in panel: "Unable to load satellite profile. Please try again later."
 
-**Background worker**
-- Kubernetes CronJob triggers Docker container on schedule
-- Fetches fresh SATCAT data from Space-Track and photos from Wikipedia
-- All sources joined on NORAD ID — universal satellite identifier across Space-Track, CelesTrak, and UCS
-- Writes enriched records to Neon Postgres
+---
+
+**The only connection between the two flows is Neon** — the worker writes to it, FastAPI reads from it.
 
 ---
 
@@ -279,13 +307,17 @@ Returns a single satellite profile. Used as fallback on IndexedDB miss.
 1. Set up Neon, run schema
 2. Build Python worker — Space-Track client, SATCAT fetch, UCS CSV reader, write to DB
 3. Dockerize the worker
-4. Kubernetes CronJob manifests, test locally with Minikube
-5. FastAPI endpoint on Vercel
-6. `SatelliteInfoPanel.tsx` in the frontend
-7. Wikipedia image fetcher in the worker
-8. Terraform for Vercel config
-9. GitHub Actions CI/CD
-10. pytest coverage for worker and API
+4. Push Docker image to Docker Hub
+5. Write Kubernetes CronJob manifests, test locally with Minikube
+6. Provision DigitalOcean Droplet via Terraform
+7. Install K3s on the Droplet
+8. Deploy Kubernetes CronJob to Droplet — worker runs in production
+9. FastAPI endpoint on Vercel
+10. `SatelliteInfoPanel.tsx` in the frontend
+11. Wikipedia image fetcher in the worker
+12. Terraform for Vercel config
+13. GitHub Actions CI/CD — builds Docker image, pushes to Docker Hub, deploys to Vercel
+14. pytest coverage for worker and API
 
 ---
 
@@ -310,23 +342,29 @@ Returns a single satellite profile. Used as fallback on IndexedDB miss.
 
 ## Terraform
 
-Manages the Vercel project config and environment variables as code. Instead of manually setting env vars in the Vercel dashboard, everything is defined in a config file and version controlled — so the infrastructure is reproducible and nothing is lost if the project needs to be rebuilt.
+Manages infrastructure across two providers as code — Vercel and DigitalOcean. Instead of clicking through dashboards to set things up, everything is defined in config files and version controlled. Reproducible and nothing is lost if things need to be rebuilt.
 
 **What it manages:**
-- Vercel project settings
-- Environment variables (Space-Track credentials, Neon connection string, etc.)
-- Production vs preview environment configs
+- Vercel project settings and environment variables (Space-Track credentials, Neon connection string, etc.)
+- DigitalOcean Droplet — creates and configures the $8/month Linux VPS where Docker and Kubernetes run
 
 **File structure:**
 ```
 terraform/
-├── main.tf          ← Vercel provider + project resource
-├── variables.tf     ← input variables (API keys, connection strings)
+├── main.tf          ← Vercel + DigitalOcean providers, all resources
+├── variables.tf     ← input variables (API keys, tokens, connection strings)
 └── terraform.tfvars ← actual values, never committed to git
 ```
 
-**Basic example:**
+**Example:**
 ```hcl
+resource "digitalocean_droplet" "worker" {
+  name   = "satellite-worker"
+  size   = "s-1vcpu-1gb"
+  image  = "ubuntu-22-04-x64"
+  region = "nyc1"
+}
+
 resource "vercel_project" "satellite_tracker" {
   name      = "live-satellite-tracker"
   framework = "vite"
@@ -349,9 +387,10 @@ resource "vercel_env" "neon_database_url" {
 
 **Commands:**
 ```bash
-terraform init        # install Vercel provider
+terraform init        # install providers
 terraform plan        # preview changes
-terraform apply       # apply changes to Vercel
+terraform apply       # apply changes to Vercel + DigitalOcean
+terraform destroy     # tear down infrastructure
 ```
 
 ---
