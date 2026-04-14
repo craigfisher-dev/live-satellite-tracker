@@ -317,21 +317,21 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
 
 ## Build order
 
-1. Set up Neon, run schema
-2. Populate `satellite_images` table — find and insert URLs for main satellites and constellations
-3. Build Python worker — Space-Track client, SATCAT fetch, UCS CSV reader, write to DB
-4. Dockerize the worker
-5. Push Docker image to Docker Hub
-6. Write Kubernetes CronJob manifests, test locally with Minikube
-7. Provision DigitalOcean Droplet via Terraform
-8. Install K3s on the Droplet
-9. Deploy Kubernetes CronJob to Droplet — worker runs in production
-10. FastAPI endpoint on Vercel
-11. `SatelliteInfoPanel.tsx` in the frontend
-12. Satellite count display in the frontend
-13. Terraform for Vercel config
-14. GitHub Actions CI/CD — builds Docker image, pushes to Docker Hub, deploys to Vercel
-15. pytest coverage for worker and API
+1. [x] Set up Neon, run schema  
+2. [] Populate `satellite_images` table — find and insert URLs for main satellites and constellations
+3. [] Build Python worker — Space-Track client, SATCAT fetch, UCS CSV reader, write to DB
+4. [] Dockerize the worker
+5. [] Push Docker image to Docker Hub
+6. [] Write Kubernetes CronJob manifests, test locally with Minikube
+7. [] Provision DigitalOcean Droplet via Terraform
+8. [] Install K3s on the Droplet
+9. [] Deploy Kubernetes CronJob to Droplet — worker runs in production
+10. [] FastAPI endpoint on Vercel
+11. [] `SatelliteInfoPanel.tsx` in the frontend
+12. [] Satellite count display in the frontend
+13. [] Terraform for Vercel config
+14. [] GitHub Actions CI/CD — builds Docker image, pushes to Docker Hub, deploys to Vercel
+15. [] pytest coverage for worker and API
 
 ---
 
