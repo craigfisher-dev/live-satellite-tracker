@@ -90,7 +90,7 @@ Has nothing to do with users — just keeps Neon up to date.
 
 ## Satellite description strategy
 
-No public database has descriptions for all 14,000+ objects. The panel only shows a description when one is available — no fallback text for unknown satellites.
+No public database has descriptions for all 14,000+ objects. Descriptions will be added later via Neon console alongside images — Starlink, OneWeb, GPS, GLONASS, Galileo, Beidou, Iridium, NOAA, Landsat, ISS, Hubble, James Webb
 
 - **Major constellations** — hardcoded description per program (e.g. every Starlink satellite shows "Part of SpaceX's Starlink broadband internet constellation"). Covers the majority of the 14,000+ catalog.
 - **Notable individual satellites** — pulled from UCS database (ISS, Hubble, weather sats, etc.)
@@ -174,6 +174,7 @@ No separate database needed — just a reference file the worker reads from. The
 
 **What UCS provides:**
 - Official satellite name
+- Operator/Owner
 - Country of operator
 - Purpose (Earth observation, communications, navigation, etc.)
 - Launch date
@@ -249,7 +250,8 @@ CREATE TABLE satellites (
     rcs_size      VARCHAR(6),           -- RCS_SIZE: SMALL, MEDIUM, LARGE
     purpose       TEXT,                 -- from UCS database, nullable
     description   TEXT,                 -- from constellation lookup table, nullable
-    last_updated  TIMESTAMP
+    last_updated  TIMESTAMP,
+    operator      TEXT,                 -- Operator/Owner from UCS database, nullable
 );
 
 CREATE TABLE satellite_images (
@@ -317,21 +319,23 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
 
 ## Build order
 
-1. [x] Set up Neon, run schema  
-2. [] Build Python worker — Space-Track client, SATCAT fetch, UCS CSV reader, write to DB
-3. [] Dockerize the worker
-4. [] Push Docker image to Docker Hub
-5. [] Write Kubernetes CronJob manifests, test locally with Minikube
-6. [] Provision DigitalOcean Droplet via Terraform
-7. [] Install K3s on the Droplet
-8. [] Deploy Kubernetes CronJob to Droplet — worker runs in production
-9. [] Populate `satellite_images` table — find and insert URLs for main satellites and constellations
-10. [] FastAPI endpoint on Vercel
-11. [] `SatelliteInfoPanel.tsx` in the frontend
-12. [] Satellite count display in the frontend
-13. [] Terraform for Vercel config
-14. [] GitHub Actions CI/CD — builds Docker image, pushes to Docker Hub, deploys to Vercel
-15. [] pytest coverage for worker and API
+1. [x] Set up Neon, run schema
+2. [x] db.py — SQLAlchemy models and upsert function
+3. [ ] spacetrack.py — Space-Track client, login, SATCAT fetch
+4. [ ] worker.py — UCS CSV reader, merge, calls db.py and spacetrack.py
+5. [ ] Dockerize the worker
+6. [ ] Push Docker image to Docker Hub
+7. [ ] Write Kubernetes CronJob manifests, test locally with Minikube
+8. [ ] Provision DigitalOcean Droplet via Terraform
+9. [ ] Install K3s on the Droplet
+10. [ ] Deploy Kubernetes CronJob to Droplet — worker runs in production
+11. [ ] Populate `satellite_images` table — find and insert URLs for main satellites and constellations
+12. [ ] FastAPI endpoint on Vercel
+13. [ ] `SatelliteInfoPanel.tsx` in the frontend
+14. [ ] Satellite count display in the frontend
+15. [ ] Terraform for Vercel config
+16. [ ] GitHub Actions CI/CD — builds Docker image, pushes to Docker Hub, deploys to Vercel
+17. [ ] pytest coverage for worker and API
 
 ---
 
@@ -352,6 +356,7 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
 - Switch TLE source from CelesTrak to Space-Track
 - Reentry prediction panel
 - Filter satellites by owner / country / purpose
+- Add hardcoded descriptions for major constellations — Starlink, OneWeb, GPS, GLONASS, Galileo, Beidou, Iridium, NOAA, Landsat, ISS, Hubble, James Webb
 
 ---
 
@@ -428,17 +433,3 @@ terraform destroy     # tear down infrastructure
 - Full flow: worker writes → API reads → correct JSON returned
 
 ---
-
-## Status
-
-### Done
-- [x] Space-Track.org account registered
-- [x] Tech stack decided
-
-### Tomorrow
-- [ ] Re-read full plan top to bottom and verify everything
-- [ ] Fix anything that doesn't look right
-- [ ] Commit finalized plan to `satellite-profiles` branch
-- [ ] Download latest UCS satellite spreadsheet from ucsusa.org
-- [ ] Research and write descriptions for top 10-20 major constellations (Starlink, OneWeb, GPS, GLONASS, Galileo, Beidou, NOAA, Landsat, Iridium, etc.)
-- [ ] Figure out rate limiting in the worker (retry logic, random minute offsets for TLE fetches)
