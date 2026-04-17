@@ -1,7 +1,7 @@
 from db import upsert_satellites, engine
-from spacetrack import fetch_satcat
+from spacetrack import get_satcat
 from sqlalchemy.orm import Session
 
 with Session(engine) as session:
-    satellites = fetch_satcat()
+    satellites = get_satcat()
     upsert_satellites(session, satellites)

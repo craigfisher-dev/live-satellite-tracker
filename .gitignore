@@ -140,3 +140,6 @@ vite.config.ts.timestamp-*
 
 # Vscode
 .vscode/
+
+# Space-Track Testing satcat Data
+testing_data/

@@ -130,6 +130,20 @@ Worker only needs **SATCAT** for now. TLEs stay with CelesTrak — no change to 
 
 ---
 
+## Testing data
+
+Space-Track rate limits make it impractical to call the API during development. A one-time 
+fetch was run to save a local copy of the full SATCAT response for offline testing.
+
+- Location: `worker/testing_data/satcat.json`
+- Contains ~68,000 objects (full catalog including debris, rocket bodies, historical launches)
+- Gitignored — never committed to the repo
+- To refresh: uncomment the block at the bottom of spacetrack.py and run it once
+- worker.py loads this file during development instead of calling get_satcat()
+- Swap back to get_satcat() before deploying to production
+
+---
+
 ## Satellite images
 
 Photos are manually curated and stored in a separate `satellite_images` table in Neon. The worker never touches this table — images are managed independently.
@@ -208,6 +222,8 @@ live-satellite-tracker/
 │   │       ├── SatelliteFilter.ts       ← existing
 │   │       └── SatelliteTracker.ts      ← existing
 │   ├── worker/
+│   │   ├── testing_data/
+│   │   │   └── satcat.json     ← gitignored, saved Space-Track response for local testing
 │   │   ├── worker.py                    ← NEW: main script
 │   │   ├── spacetrack.py                ← NEW: Space-Track API client
 │   │   ├── db.py                        ← NEW: SQLAlchemy models + writes
@@ -321,7 +337,7 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
 
 1. [x] Set up Neon, run schema
 2. [x] db.py — SQLAlchemy models and upsert function
-3. [ ] spacetrack.py — Space-Track client, login, SATCAT fetch
+3. [x] spacetrack.py — Space-Track client, login, SATCAT fetch
 4. [ ] worker.py — UCS CSV reader, merge, calls db.py and spacetrack.py
 5. [ ] Dockerize the worker
 6. [ ] Push Docker image to Docker Hub
