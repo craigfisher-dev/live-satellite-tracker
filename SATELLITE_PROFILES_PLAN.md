@@ -345,6 +345,10 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
 8. [ ] Provision DigitalOcean Droplet via Terraform
 9. [ ] Install K3s on the Droplet
 10. [ ] Deploy Kubernetes CronJob to Droplet — worker runs in production
+    - swap testing_data load back to get_satcat() in worker.py
+    - rebuild Docker image
+    - push updated image to Docker Hub
+    - then deploy to Droplet
 11. [ ] Populate `satellite_images` table — find and insert URLs for main satellites and constellations
 12. [ ] FastAPI endpoint on Vercel
 13. [ ] `SatelliteInfoPanel.tsx` in the frontend
@@ -352,7 +356,7 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
 15. [ ] Terraform for Vercel config
 16. [ ] GitHub Actions CI/CD — builds Docker image, pushes to Docker Hub, deploys to Vercel
 17. [ ] pytest coverage for worker and API
-
+18. [ ] Merge satellite-profiles branch to main
 ---
 
 ## What stays the same
