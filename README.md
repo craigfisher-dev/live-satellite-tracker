@@ -2,11 +2,11 @@
 
 **Live App**: [https://live-satellite-tracker.vercel.app](https://live-satellite-tracker.vercel.app)
 
-Real-time 3D visualization of 14,000+ active satellites orbiting Earth. Click any satellite to view its predicted orbital trajectory. Built with React, TypeScript, and CesiumJS, deployed on Vercel.
+Real-time 3D visualization of 15,000+ active satellites orbiting Earth. Click any satellite to view its predicted orbital trajectory. Built with React, TypeScript, and CesiumJS, deployed on Vercel.
 
 ## Features
 
-- Real-time tracking of 14,000+ satellites on interactive 3D globe
+- Real-time tracking of 15,000+ satellites on interactive 3D globe
 - Click any satellite to view its predicted orbital path
 - Control simulation time: pause, play, or adjust speed (-1000x to +1000x)
 - Realistic Earth lighting and shading with day/night cycles
@@ -66,7 +66,7 @@ Satellites appear as colored dots on a 3D Earth globe. Click any satellite to vi
 
 **Rendering Optimization**
 - Entire scene rendered in just 3 GPU draw calls using Cesium primitive collections:
-  - All 14,000+ satellite points (PointPrimitiveCollection)
+  - All 15,000+ satellite points (PointPrimitiveCollection)
   - Satellite orbital paths (PolylineCollection)
   - Country borders (PolylineCollection)
 - Reusable Cartesian3 scratch variables minimize garbage collection
