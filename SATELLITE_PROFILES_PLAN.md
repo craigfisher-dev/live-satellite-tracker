@@ -140,7 +140,10 @@ fetch was run to save a local copy of the full SATCAT response for offline testi
 - Gitignored — never committed to the repo
 - To refresh: uncomment the block at the bottom of spacetrack.py and run it once
 - worker.py loads this file during development instead of calling get_satcat()
-- Swap back to get_satcat() before deploying to production
+
+**Switching between test and production mode:**
+- Set `USE_TEST_DATA=true` in `.env` to load from `testing_data/satcat.json` locally
+- Set `USE_TEST_DATA=false` in production Kubernetes secrets — worker calls `get_satcat()`
 
 ---
 
@@ -229,14 +232,15 @@ live-satellite-tracker/
 │   │   ├── db.py                        ← NEW: SQLAlchemy models + writes
 │   │   ├── data/
 │   │   │   └── ucs_satellites.csv       ← NEW: UCS spreadsheet, updated manually
+│   │   ├── .dockerignore                ← NEW
 │   │   ├── Dockerfile                   ← NEW
+│   |   ├── requirements.txt             ← NEW: fastapi, sqlalchemy, psycopg2, requests
 │   │   └── k8s/
 │   │       ├── cronjob-tle.yaml         ← NEW: hourly
 │   │       └── cronjob-satcat.yaml      ← NEW: daily
 │   ├── terraform/
 │   │   ├── main.tf                      ← NEW: Vercel project + env vars
 │   │   └── variables.tf                 ← NEW
-│   ├── requirements.txt                 ← NEW: fastapi, sqlalchemy, psycopg2
 │   ├── .env
 │   ├── .gitignore
 │   ├── vercel.json
@@ -339,16 +343,15 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
 2. [x] db.py — SQLAlchemy models and upsert function
 3. [x] spacetrack.py — Space-Track client, login, SATCAT fetch
 4. [x] worker.py — UCS CSV reader, merge, calls db.py and spacetrack.py
-5. [ ] Dockerize the worker
-6. [ ] Push Docker image to Docker Hub
+5. [x] Dockerize the worker
+6. [x] Push Docker image to Docker Hub
 7. [ ] Write Kubernetes CronJob manifests, test locally with Minikube
 8. [ ] Provision DigitalOcean Droplet via Terraform
 9. [ ] Install K3s on the Droplet
 10. [ ] Deploy Kubernetes CronJob to Droplet — worker runs in production
-    - swap testing_data load back to get_satcat() in worker.py
-    - rebuild Docker image
-    - push updated image to Docker Hub
-    - then deploy to Droplet
+    - set USE_TEST_DATA=false in Kubernetes secrets
+    - rebuild Docker image and push to Docker Hub
+    - deploy to Droplet
 11. [ ] Populate `satellite_images` table — find and insert URLs for main satellites and constellations
 12. [ ] FastAPI endpoint on Vercel
 13. [ ] `SatelliteInfoPanel.tsx` in the frontend
@@ -432,6 +435,21 @@ terraform plan        # preview changes
 terraform apply       # apply changes to Vercel + DigitalOcean
 terraform destroy     # tear down infrastructure
 ```
+
+---
+
+## Docker commands
+
+Run all commands from `frontend/worker/`.
+
+**Build, test, and push after any code or data change:**
+```bash
+docker build -t craigfisherdev/satellite-worker:latest .
+docker run --env-file ../.env craigfisherdev/satellite-worker:latest
+docker push craigfisherdev/satellite-worker:latest
+```
+
+In production Kubernetes pulls the image from Docker Hub and injects secrets automatically — no manual `docker run` needed on the droplet.
 
 ---
 

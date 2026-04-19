@@ -1,0 +1,11 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment variables — never copy secrets into the container
+.env
+
+# Git
+.git
+.gitignore

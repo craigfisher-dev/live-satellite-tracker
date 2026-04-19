@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 import json
 from collections import defaultdict
 import csv
+import os
 
 UCS_CSV_PATH = 'data/ucs_satellites.csv'
 
@@ -49,13 +50,13 @@ def merge(satellites, ucs):
 
 
 with Session(engine) as session:
-    # DEVELOPMENT: load from local testing data instead of calling Space-Track
-    # TODO: swap back to get_satcat() before deploying to production
-    with open('testing_data/satcat.json') as f:
-        satellites = json.load(f)
-
-    # PRODUCTION: uncomment and remove the block above
-    # satellites = get_satcat()
+    # DEVELOPMENT: set USE_TEST_DATA=true to load local test data instead of calling Space-Track
+    # PRODUCTION: leave USE_TEST_DATA unset and it will call Space-Track automatically
+    if os.getenv('USE_TEST_DATA') == 'true':
+        with open('testing_data/satcat.json') as f:
+            satellites = json.load(f)
+    else:
+        satellites = get_satcat()
 
     ucs = load_ucs()
     satellites = merge(satellites, ucs)
