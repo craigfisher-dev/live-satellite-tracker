@@ -143,3 +143,6 @@ vite.config.ts.timestamp-*
 
 # Space-Track Testing satcat Data
 testing_data/
+
+# pycache
+__pycache__

@@ -338,7 +338,7 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
 1. [x] Set up Neon, run schema
 2. [x] db.py — SQLAlchemy models and upsert function
 3. [x] spacetrack.py — Space-Track client, login, SATCAT fetch
-4. [ ] worker.py — UCS CSV reader, merge, calls db.py and spacetrack.py
+4. [x] worker.py — UCS CSV reader, merge, calls db.py and spacetrack.py
 5. [ ] Dockerize the worker
 6. [ ] Push Docker image to Docker Hub
 7. [ ] Write Kubernetes CronJob manifests, test locally with Minikube
