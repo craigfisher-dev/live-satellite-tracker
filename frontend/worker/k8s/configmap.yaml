@@ -5,4 +5,4 @@ metadata:
   namespace: satellite-tracker
 data:
   # Change to "false" for production
-  USE_TEST_DATA: "true"
+  USE_TEST_DATA: "false"

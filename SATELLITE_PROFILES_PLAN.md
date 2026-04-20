@@ -351,17 +351,19 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
     - installed with --disable traefik --disable servicelb
     - traefik = reverse proxy for incoming web traffic (not needed, worker is outgoing only)
     - servicelb = load balancer (not needed, single container)
-    - saves ~100MB RAM on 1GB Droplet
-10. [ ] Deploy Kubernetes CronJob to Droplet — worker runs in production
-    - commit k8s/ manifests to satellite-profiles branch and push
-    - set USE_TEST_DATA=false in secrets.yaml
-    - rebuild Docker image and push to Docker Hub
+    - saves ~100MB RAM on 2GB Droplet
+10. [x] Deploy Kubernetes CronJob to Droplet — worker runs in production
+    - committed k8s/ manifests to satellite-profiles branch and pushed
+    - set USE_TEST_DATA=false in configmap.yaml (not secrets.yaml — env var lives in ConfigMap)
+    - rebuilt Docker image and pushed to Docker Hub
     - git clone -b satellite-profiles repo onto Droplet
-    - scp secrets.yaml to Droplet (gitignored, can't be cloned)
     - kubectl apply -f k8s/
-    - trigger manual job to test: kubectl create job satcat-test --from=cronjob/satcat-worker -n satellite-tracker
-    - check logs: kubectl logs -f <pod-name> -n satellite-tracker
-    - verify data written to Neon
+    - triggered manual job to test: kubectl create job --from=cronjob/run-worker test-run -n satellite-tracker
+    - checked logs: kubectl logs -f -n satellite-tracker -l job-name=test-run
+    - verified 68,594 satellites upserted to Neon, purpose/operator populated from UCS
+    - deleted all satellites from Neon, triggered test-run-2, verified 68,594 rows restored
+    - upgraded Droplet from $8/mo (1GB RAM) to $12/mo (2GB RAM) due to memory pressure during upsert
+    - CronJob scheduled: 0 5 * * * (5am UTC / midnight EST daily)
     - for future updates: SSH in → git pull → kubectl apply -f k8s/
     - NOTE: currently on satellite-profiles branch — switch to main after step 18 merge
 11. [ ] Populate `satellite_images` table — find and insert URLs for main satellites and constellations
