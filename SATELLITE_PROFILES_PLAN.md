@@ -345,21 +345,31 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
 4. [x] worker.py — UCS CSV reader, merge, calls db.py and spacetrack.py
 5. [x] Dockerize the worker
 6. [x] Push Docker image to Docker Hub
-7. [ ] Write Kubernetes CronJob manifests, test locally with Minikube
-8. [ ] Provision DigitalOcean Droplet via Terraform
-9. [ ] Install K3s on the Droplet
-10. [ ] Deploy Kubernetes CronJob to Droplet — worker runs in production
-    - set USE_TEST_DATA=false in Kubernetes secrets
+7. [x] Write Kubernetes CronJob manifests, test locally with Minikube
+8. [x] Provision DigitalOcean Droplet
+9. [x] Install K3s on the Droplet
+- commit k8s/ manifests to satellite-profiles branch and push
+    - set USE_TEST_DATA=false in secrets.yaml
     - rebuild Docker image and push to Docker Hub
-    - deploy to Droplet
+    - git clone -b satellite-profiles repo onto Droplet
+    - scp secrets.yaml to Droplet (gitignored, can't be cloned)
+    - kubectl apply -f k8s/
+    - trigger manual job to test: kubectl create job satcat-test --from=cronjob/satcat-worker -n satellite-tracker
+    - check logs: kubectl logs -f <pod-name> -n satellite-tracker
+    - verify data written to Neon
+    - for future updates: SSH in → git pull → kubectl apply -f k8s/
+    - NOTE: currently on satellite-profiles branch — switch to main after step 18 merge
 11. [ ] Populate `satellite_images` table — find and insert URLs for main satellites and constellations
 12. [ ] FastAPI endpoint on Vercel
 13. [ ] `SatelliteInfoPanel.tsx` in the frontend
 14. [ ] Satellite count display in the frontend
-15. [ ] Terraform for Vercel config
+15. [ ] Terraform — manage Vercel project config/env vars + import existing DigitalOcean Droplet into Terraform state
 16. [ ] GitHub Actions CI/CD — builds Docker image, pushes to Docker Hub, deploys to Vercel
 17. [ ] pytest coverage for worker and API
 18. [ ] Merge satellite-profiles branch to main
+    - SSH into Droplet → git pull origin main
+    - kubectl apply -f k8s/ (reapply manifests from main)
+    - Droplet now tracks main going forward
 ---
 
 ## What stays the same

@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: run-worker
+  namespace: satellite-tracker
+spec:
+  schedule: "0 5 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: update-satellite-worker
+            image: craigfisherdev/satellite-worker:latest
+            envFrom:
+            - secretRef:
+                name: worker-secrets
+            - configMapRef:
+                name: worker-config
+          restartPolicy: Never

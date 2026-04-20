@@ -9,3 +9,6 @@ __pycache__/
 # Git
 .git
 .gitignore
+
+# Kubernetes + secretes
+k8s/
