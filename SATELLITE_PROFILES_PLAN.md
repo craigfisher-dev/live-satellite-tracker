@@ -348,7 +348,12 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
 7. [x] Write Kubernetes CronJob manifests, test locally with Minikube
 8. [x] Provision DigitalOcean Droplet
 9. [x] Install K3s on the Droplet
-- commit k8s/ manifests to satellite-profiles branch and push
+    - installed with --disable traefik --disable servicelb
+    - traefik = reverse proxy for incoming web traffic (not needed, worker is outgoing only)
+    - servicelb = load balancer (not needed, single container)
+    - saves ~100MB RAM on 1GB Droplet
+10. [ ] Deploy Kubernetes CronJob to Droplet — worker runs in production
+    - commit k8s/ manifests to satellite-profiles branch and push
     - set USE_TEST_DATA=false in secrets.yaml
     - rebuild Docker image and push to Docker Hub
     - git clone -b satellite-profiles repo onto Droplet
