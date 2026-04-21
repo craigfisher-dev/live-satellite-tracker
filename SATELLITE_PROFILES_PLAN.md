@@ -149,21 +149,20 @@ fetch was run to save a local copy of the full SATCAT response for offline testi
 
 ## Satellite images
 
-Photos are manually curated and stored in a separate `satellite_images` table in Neon. The worker never touches this table — images are managed independently.
+Photos are manually curated and stored in the `satellite_images` table in Neon. The worker never touches this table — images are managed independently.
 
 **Coverage strategy:**
-- ISS, Hubble, James Webb, Chandra, and other notable individual satellites — unique photo each
-- Major constellations (Starlink, OneWeb, GPS, GLONASS, Galileo, Beidou, Iridium, etc.) — one shared photo per constellation, reused for every satellite in that program
-- NASA and ESA missions — photo where one exists
+- Individual notable satellites (ISS, Hubble, James Webb, Chandra, etc.) — unique photo each, looked up by norad_id
+- One image per constellation program, reused for every satellite in that program, looked up by canonical name
+- Constellations mirror the network filter in SatelliteFilter.ts: STARLINK, ONEWEB, KUIPER, IRIDIUM, GPS, GLOBALSTAR, GALILEO, GLONASS, BEIDOU, QIANFAN, PLANET
 - Unknown payloads, rocket bodies, debris — no image, section hidden in the panel
 
 **How it works:**
-- Images are sourced manually from NASA, ESA, and Wikimedia Commons (open license)
-- Only the image URL is stored — images load directly from the source, nothing stored on Vercel or Neon
+- Images sourced from NASA and Wikimedia Commons (open license only — no random website URLs)
+- Only the image URL is stored — images load directly from the source, nothing hosted on Vercel or Neon
+- FastAPI resolves images in priority order: norad_id match first, constellation fallback second, no image third
+- Constellation name is mapped from the satellite name in the API using the same logic as SatelliteFilter.ts
 - New images can be added anytime by inserting a row in Neon — no redeployment needed
-- For constellations, one photo is reused across all satellites in that program
-
-**To-do:** find and insert image URLs for the main satellites and constellations before building the panel.
 
 ---
 
@@ -197,8 +196,6 @@ No separate database needed — just a reference file the worker reads from. The
 - Launch date
 - Expected lifetime
 - Contractor/manufacturer
-
-**To-do:** download latest UCS spreadsheet before building the worker.
 
 ---
 
@@ -275,13 +272,16 @@ CREATE TABLE satellites (
 );
 
 CREATE TABLE satellite_images (
-    norad_id      INTEGER PRIMARY KEY,  -- matches satellites.norad_id
-    image_url     TEXT NOT NULL,        -- full URL, images served directly from source
-    credit        TEXT                  -- e.g. 'NASA', 'ESA', 'Wikimedia Commons'
+    id            SERIAL PRIMARY KEY,
+    norad_id      INTEGER,             -- for individual sats (ISS, Hubble, etc.), null for constellations
+    constellation VARCHAR(20),         -- canonical program name (STARLINK, GPS, PLANET, etc.), null for individual sats
+    image_url     TEXT NOT NULL,       -- full URL, images served directly from source
+    credit        TEXT,                -- e.g. 'NASA', 'ESA', 'Wikimedia Commons'
+    caption       TEXT                 -- caption for the image
 );
 ```
 
-FastAPI joins the two tables on `norad_id` when serving profiles. Worker never touches `satellite_images`. Images are added manually via the Neon console.
+FastAPI queries satellites by norad_id, then resolves images from satellite_images using norad_id first, constellation name fallback second. Worker never touches `satellite_images`. Images are added manually via the Neon console.
 
 ---
 
@@ -363,17 +363,23 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
     - verified 68,594 satellites upserted to Neon, purpose/operator populated from UCS
     - deleted all satellites from Neon, triggered test-run-2, verified 68,594 rows restored
     - upgraded Droplet from $8/mo (1GB RAM) to $12/mo (2GB RAM) due to memory pressure during upsert
-    - CronJob scheduled: 0 5 * * * (5am UTC / midnight EST daily)
+    - CronJob scheduled: 0 5 * * * (5am UTC / midnight EST  or 1 am EDT) 
     - for future updates: SSH in → git pull → kubectl apply -f k8s/
     - NOTE: currently on satellite-profiles branch — switch to main after step 18 merge
-11. [ ] Populate `satellite_images` table — find and insert URLs for main satellites and constellations
-12. [ ] FastAPI endpoint on Vercel
-13. [ ] `SatelliteInfoPanel.tsx` in the frontend
-14. [ ] Satellite count display in the frontend
-15. [ ] Terraform — manage Vercel project config/env vars + import existing DigitalOcean Droplet into Terraform state
-16. [ ] GitHub Actions CI/CD — builds Docker image, pushes to Docker Hub, deploys to Vercel
-17. [ ] pytest coverage for worker and API
-18. [ ] Merge satellite-profiles branch to main
+11. [ ] Verify CelesTrak/Space-Track NORAD ID overlap
+    - Write a quick Python script that fetches active TLE data from CelesTrak
+    - Extract all NORAD IDs from the TLE response
+    - Query Neon satellites table and compare — how many CelesTrak IDs have a matching row
+    - Log any missing IDs and investigate — recent launches not yet in SATCAT, data lag, etc.
+    - Confirm overlap is high enough before proceeding to FastAPI
+12. [ ] Populate `satellite_images` table — find and insert URLs for main satellites and constellations
+13. [ ] FastAPI endpoint on Vercel
+14. [ ] `SatelliteInfoPanel.tsx` in the frontend
+15. [ ] Satellite count display in the frontend
+16. [ ] Terraform — manage Vercel project config/env vars + import existing DigitalOcean Droplet into Terraform state
+17. [ ] GitHub Actions CI/CD — builds Docker image, pushes to Docker Hub, deploys to Vercel
+18. [ ] pytest coverage for worker and API
+19. [ ] Merge satellite-profiles branch to main
     - SSH into Droplet → git pull origin main
     - kubectl apply -f k8s/ (reapply manifests from main)
     - Droplet now tracks main going forward
@@ -393,10 +399,10 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
 
 - Expand image coverage beyond the initial curated set
 - Conjunction alerts using CDM data from Space-Track
-- Switch TLE source from CelesTrak to Space-Track
 - Reentry prediction panel
 - Filter satellites by owner / country / purpose
 - Add hardcoded descriptions for major constellations — Starlink, OneWeb, GPS, GLONASS, Galileo, Beidou, Iridium, NOAA, Landsat, ISS, Hubble, James Webb
+- Switch TLE source from CelesTrak to Space-Track for a unified data pipeline (major overhaul of v1 edge function architecture)
 
 ---
 
