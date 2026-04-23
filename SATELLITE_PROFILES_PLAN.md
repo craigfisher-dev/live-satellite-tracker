@@ -366,13 +366,17 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
     - CronJob scheduled: 0 5 * * * (5am UTC / midnight EST  or 1 am EDT) 
     - for future updates: SSH in → git pull → kubectl apply -f k8s/
     - NOTE: currently on satellite-profiles branch — switch to main after step 18 merge
-11. [ ] Verify CelesTrak/Space-Track NORAD ID overlap
+11. [x] Verify CelesTrak/Space-Track NORAD ID overlap
     - Write a quick Python script that fetches active TLE data from CelesTrak
     - Extract all NORAD IDs from the TLE response
     - Query Neon satellites table and compare — how many CelesTrak IDs have a matching row
     - Log any missing IDs and investigate — recent launches not yet in SATCAT, data lag, etc.
-    - Confirm overlap is high enough before proceeding to FastAPI
-12. [ ] Populate `satellite_images` table — find and insert URLs for main satellites and constellations
+    - Confirm overlap is high enough before proceeding to FastAPI (Confirmed 99.999% Only 1 satellite difference between them due to non perfect sync because of cron job (expected result))
+12. [x] Populate `satellite_images` table
+    - Dropped and recreated satellite_images table with new schema (id, norad_id, constellation)
+    - Inserted 4 individual satellite rows (ISS, Hubble, James Webb, Chandra) using NASA/Wikimedia URLs
+    - Inserted 11 constellation rows (STARLINK, ONEWEB, KUIPER, IRIDIUM, GPS, GLOBALSTAR, GALILEO, GLONASS, BEIDOU, QIANFAN, PLANET) using NASA/Wikimedia URLs
+    - 15 total rows in satellite_images table
 13. [ ] FastAPI endpoint on Vercel
 14. [ ] `SatelliteInfoPanel.tsx` in the frontend
 15. [ ] Satellite count display in the frontend
