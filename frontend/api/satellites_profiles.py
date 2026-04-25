@@ -1,11 +1,72 @@
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+from sqlalchemy import create_engine, text
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
-@app.get("/")
-def hello():
-    return {"message": "hello world"}
+engine = create_engine(os.getenv("DATABASE_URL"))
 
-@app.get("/satellites/{norad_id}")
-def get_satellite(norad_id: int):
-    return {"norad_id": norad_id, "name": "fake satellite"}
+def get_constellation(name: str) -> str | None:
+    """
+    Derives the canonical constellation name from a satellite name.
+    Mirrors the network filter logic in SatelliteFilter.ts.
+    """
+    if not name:
+        return None
+    name_upper = name.upper()
+    if "STARLINK" in name_upper: return "STARLINK"
+    if "ONEWEB" in name_upper: return "ONEWEB"
+    if "KUIPER" in name_upper: return "KUIPER"
+    if "IRIDIUM" in name_upper: return "IRIDIUM"
+    if "GPS" in name_upper or "NAVSTAR" in name_upper: return "GPS"
+    if "GLOBALSTAR" in name_upper: return "GLOBALSTAR"
+    if "GALILEO" in name_upper: return "GALILEO"
+    if "GLONASS" in name_upper: return "GLONASS"
+    if "BEIDOU" in name_upper: return "BEIDOU"
+    if "QIANFAN" in name_upper: return "QIANFAN"
+    if any(k in name_upper for k in ["SKYSAT", "FLOCK", "PELICAN", "TANAGER"]): return "PLANET"
+    return None
+
+@app.get("/api/satellites-profiles")
+def get_satellite_profiles():
+    with engine.connect() as conn:
+        satellites = conn.execute(text("SELECT * FROM satellites ORDER BY norad_id")).fetchall()
+        images = conn.execute(text("SELECT * FROM satellite_images")).fetchall()
+
+        images_by_norad = {row.norad_id: row for row in images if row.norad_id}
+        images_by_constellation = {row.constellation: row for row in images if row.constellation}
+
+        profiles = []
+        for row in satellites:
+            constellation = get_constellation(row.name)
+            image = images_by_norad.get(row.norad_id) or images_by_constellation.get(constellation)
+
+            profiles.append({
+                "norad_id": row.norad_id,
+                "name": row.name,
+                "object_type": row.object_type,
+                "country": row.country,
+                "launch_date": row.launch_date.isoformat() if row.launch_date else None,
+                "launch_site": row.launch_site,
+                "decay_date": row.decay_date.isoformat() if row.decay_date else None,
+                "current": row.current,
+                "rcs_size": row.rcs_size,
+                "purpose": row.purpose,
+                "description": row.description,
+                "operator": row.operator,
+                "image_url": image.image_url if image else None,
+                "credit": image.credit if image else None,
+                "last_updated": row.last_updated.isoformat() if row.last_updated else None,
+            })
+
+        return JSONResponse(
+            content=profiles,
+            headers={
+                "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=86400",
+                "Access-Control-Allow-Origin": "*",
+            }
+        )

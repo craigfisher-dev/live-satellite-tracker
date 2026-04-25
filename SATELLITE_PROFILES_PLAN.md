@@ -377,7 +377,7 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
     - Inserted 4 individual satellite rows (ISS, Hubble, James Webb, Chandra) using NASA/Wikimedia URLs
     - Inserted 11 constellation rows (STARLINK, ONEWEB, KUIPER, IRIDIUM, GPS, GLOBALSTAR, GALILEO, GLONASS, BEIDOU, QIANFAN, PLANET) using NASA/Wikimedia URLs
     - 15 total rows in satellite_images table
-13. [ ] FastAPI endpoint on Vercel
+13. [x] FastAPI endpoint on Vercel
 14. [ ] `SatelliteInfoPanel.tsx` in the frontend
 15. [ ] Satellite count display in the frontend
 16. [ ] Terraform — manage Vercel project config/env vars + import existing DigitalOcean Droplet into Terraform state
