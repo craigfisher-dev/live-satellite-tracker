@@ -11,7 +11,7 @@ Nothing in the existing tracker changes. This is purely additive.
 ## What's being added
 
 - **Satellite info panel** — TSX React component that renders when you click a satellite
-- **FastAPI backend** — Python API on Vercel that serves enriched satellite data
+- **FastAPI backend** — Python REST API on Vercel serverless (not edge runtime) that serves enriched satellite data
 - **SQLAlchemy** — ORM for reading and writing to Neon Postgres from both the API and worker
 - **Neon** — free serverless Postgres, stores the enriched satellite records
 - **Python worker** — scheduled script that fetches data from Space-Track and writes to the database
@@ -28,7 +28,7 @@ Nothing in the existing tracker changes. This is purely additive.
 
 | Tool | Why |
 |---|---|
-| FastAPI | Python REST API serving enriched satellite data on Vercel serverless. |
+| FastAPI | Python REST API serving enriched satellite data on Vercel serverless. Runs as a regular serverless function (not edge runtime) — required for Python runtime and cron job compatibility. |
 | SQLAlchemy | ORM for reading and writing to Neon Postgres from the API and worker. |
 | Neon | Free serverless Postgres. Scales to zero when idle so it stays within free tier. No pausing. |
 | Python worker | Scheduled script that pulls from Space-Track and populates the database. |
@@ -48,6 +48,9 @@ Nothing in the existing tracker changes. This is purely additive.
 **Existing pipeline (unchanged)**
 - CesiumJS frontend → Vercel Edge Functions (TS) → CelesTrak → IndexedDB
 - TLE fetching, orbital paths, time controls, globe rendering — untouched
+
+**Profiles pipeline (NEW)**
+- CesiumJS frontend → Vercel Serverless Function (Python/FastAPI) → Neon Postgres → IndexedDB
 
 ---
 
@@ -206,7 +209,8 @@ live-satellite-tracker/
 ├── frontend/                            ← existing structure, everything lives here
 │   ├── api/
 │   │   ├── satellites.ts                ← existing Vercel edge function
-│   │   └── satellites-profiles.py         ← NEW: FastAPI bulk endpoint on Vercel
+│   │   └── satellites-profiles/
+│   │       └── index.py                 ← NEW: FastAPI bulk endpoint on Vercel
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── Clock.tsx                ← existing
@@ -378,6 +382,14 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
     - Inserted 11 constellation rows (STARLINK, ONEWEB, KUIPER, IRIDIUM, GPS, GLOBALSTAR, GALILEO, GLONASS, BEIDOU, QIANFAN, PLANET) using NASA/Wikimedia URLs
     - 15 total rows in satellite_images table
 13. [x] FastAPI endpoint on Vercel
+    - created api/satellites-profiles/index.py (subfolder required for Vercel routing)
+    - Vercel auto-detects Python runtime from requirements.txt in frontend/
+    - removed functions block from vercel.json (caused runtime version error)
+    - DATABASE_URL env var must be enabled for Preview environments in Vercel dashboard
+    - verified working on Vercel preview branch: 68,662 satellites and 15 images returned from Neon
+    - print() statements visible in Vercel dashboard → Logs tab
+    - added cron job for /api/satellites-profiles at 0 10 * * * in vercel.json to proactively refresh Vercel edge cache daily without requiring a user request
+    - runs as a Vercel serverless function (not edge runtime) — Python runtime requirement; cron jobs work natively unlike the TS edge function in satellites.ts
 14. [ ] `SatelliteInfoPanel.tsx` in the frontend
 15. [ ] Satellite count display in the frontend
 16. [ ] Terraform — manage Vercel project config/env vars + import existing DigitalOcean Droplet into Terraform state
