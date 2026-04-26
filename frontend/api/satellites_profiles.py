@@ -33,9 +33,12 @@ def get_constellation(name: str) -> str | None:
 
 @app.get("/api/satellites-profiles")
 def get_satellite_profiles():
+    print("satellites-profiles called")
     with engine.connect() as conn:
         satellites = conn.execute(text("SELECT * FROM satellites ORDER BY norad_id")).fetchall()
+        print(f"fetched {len(satellites)} satellites from Neon")
         images = conn.execute(text("SELECT * FROM satellite_images")).fetchall()
+        print(f"fetched {len(images)} images from Neon")
 
         images_by_norad = {row.norad_id: row for row in images if row.norad_id}
         images_by_constellation = {row.constellation: row for row in images if row.constellation}
@@ -63,6 +66,7 @@ def get_satellite_profiles():
                 "last_updated": row.last_updated.isoformat() if row.last_updated else None,
             })
 
+        print(f"returning {len(profiles)} profiles")
         return JSONResponse(
             content=profiles,
             headers={
