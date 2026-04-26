@@ -4,11 +4,10 @@
     {
       "path": "/api/satellites",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/satellites-profiles",
+      "schedule": "0 10 * * *"
     }
-  ],
-  "functions": {
-    "api/satellites_profiles.py": {
-      "runtime": "python3.14"
-    }
-  }
+  ]
 }
