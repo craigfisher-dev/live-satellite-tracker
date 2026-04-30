@@ -390,12 +390,19 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
     - print() statements visible in Vercel dashboard → Logs tab
     - added cron job for /api/satellites-profiles at 0 10 * * * in vercel.json to proactively refresh Vercel edge cache daily without requiring a user request
     - runs as a Vercel serverless function (not edge runtime) — Python runtime requirement; cron jobs work natively unlike the TS edge function in satellites.ts
-14. [ ] `SatelliteInfoPanel.tsx` in the frontend
-15. [ ] Satellite count display in the frontend
-16. [ ] Terraform — manage Vercel project config/env vars + import existing DigitalOcean Droplet into Terraform state
-17. [ ] GitHub Actions CI/CD — builds Docker image, pushes to Docker Hub, deploys to Vercel
-18. [ ] pytest coverage for worker and API
-19. [ ] Merge satellite-profiles branch to main
+14. [x] IndexedDB satellite profiles caching
+    - created src/utils/profileCache.ts with fetchSatelliteProfiles() and getSatelliteProfile()
+    - updated satelliteCache.ts: DB_VERSION incremented 1→2, onupgradeneeded now creates both 'cache' (TLE) and 'satellites' (profiles) tables
+    - updated SatelliteTracker.ts: parallel fetching with Promise.all([fetchSatelliteData(), fetchSatelliteProfiles()])
+    - profiles bulk fetched on app load: ~7.7s initial (all 68,662), ~630ms cached (24hr expiry)
+    - fallback hierarchy: IndexedDB cache → API fetch → stale cache → error
+    - profiles ready in IndexedDB for SatelliteInfoPanel component lookups by norad_id
+15. [ ] `SatelliteInfoPanel.tsx` in the frontend
+16. [ ] Satellite count display in the frontend
+17. [ ] Terraform — manage Vercel project config/env vars + import existing DigitalOcean Droplet into Terraform state
+18. [ ] GitHub Actions CI/CD — builds Docker image, pushes to Docker Hub, deploys to Vercel
+19. [ ] pytest coverage for worker and API
+20. [ ] Merge satellite-profiles branch to main
     - SSH into Droplet → git pull origin main
     - kubectl apply -f k8s/ (reapply manifests from main)
     - Droplet now tracks main going forward

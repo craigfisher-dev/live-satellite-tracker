@@ -2,15 +2,19 @@ import * as Cesium from 'cesium'
 import * as satellite from 'satellite.js'
 import { fetchSatelliteData } from './satelliteCache'
 import { getActiveFilter, onFilterChange } from './SatelliteFilter'
+import { fetchSatelliteProfiles } from './profileCache'
 
 export async function Satellite(viewer: Cesium.Viewer) {
 
   console.time('Total Satellite init')
 
 
-  // Fetch all stations
+  // Fetch TLE and profile data in parallel
   console.time('Fetch data')
-  const ommData = await fetchSatelliteData()
+  const [ommData] = await Promise.all([
+    fetchSatelliteData(),
+    fetchSatelliteProfiles()
+  ])
   console.timeEnd('Fetch data')
 
   // Create collections (one draw call each)
@@ -105,32 +109,32 @@ export async function Satellite(viewer: Cesium.Viewer) {
 
 
 
-// Click handler
-const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
+  // Click handler
+  const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
 
-handler.setInputAction((click: { position: Cesium.Cartesian2 }) => {
-  const picked = viewer.scene.pick(click.position)
+  handler.setInputAction((click: { position: Cesium.Cartesian2 }) => {
+    const picked = viewer.scene.pick(click.position)
 
-  // Clear previous selection - restore original color
-  if (selectedSatellite) {
-    selectedSatellite.orbitalPredictionPath.positions = []
-    // Set back to original pixel size
-    selectedSatellite.point.pixelSize = 3
-  }
-
-  // Check if we clicked a point
-  if (picked && picked.primitive instanceof Cesium.PointPrimitive) {
-    const sat = pointToSatellite.get(picked.primitive)
-    if (sat) {
-      selectedSatellite = sat
-      // Ability to change size right now left it the default of 3 px
-      sat.point.pixelSize = 3
-      sat.orbitalPredictionPath.positions = calculateOrbit(sat)
+    // Clear previous selection - restore original color
+    if (selectedSatellite) {
+      selectedSatellite.orbitalPredictionPath.positions = []
+      // Set back to original pixel size
+      selectedSatellite.point.pixelSize = 3
     }
-  } else {
-    selectedSatellite = null
-  }
-}, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+
+    // Check if we clicked a point
+    if (picked && picked.primitive instanceof Cesium.PointPrimitive) {
+      const sat = pointToSatellite.get(picked.primitive)
+      if (sat) {
+        selectedSatellite = sat
+        // Ability to change size right now left it the default of 3 px
+        sat.point.pixelSize = 3
+        sat.orbitalPredictionPath.positions = calculateOrbit(sat)
+      }
+    } else {
+      selectedSatellite = null
+    }
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 
   const scratch = new Cesium.Cartesian3()
 
