@@ -13,7 +13,7 @@ const CACHE_DURATION = 24 * 60 * 60 * 1000
 // npm run dev → false, npm run build → true
 const API_URL = import.meta.env.PROD 
   ? '/api/satellites'  // Production: Vercel edge cache
-  : 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=JSON' // Dev: direct (all satellites)
+  : 'https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=JSON' // Dev: just ISS/stations (small)
 
 export async function fetchSatelliteData(): Promise<any[]> {
 
