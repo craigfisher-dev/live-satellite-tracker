@@ -50,6 +50,17 @@ function App() {
       fullscreenButton: false,    // Disables the full screen button
     })
 
+    viewer.scene.skyBox = new Cesium.SkyBox({
+      sources: {
+        positiveX: '/stars/TychoSkymapII.t3_08192x04096_80_px.jpg',
+        negativeX: '/stars/TychoSkymapII.t3_08192x04096_80_mx.jpg',
+        positiveY: '/stars/TychoSkymapII.t3_08192x04096_80_py.jpg',
+        negativeY: '/stars/TychoSkymapII.t3_08192x04096_80_my.jpg',
+        positiveZ: '/stars/TychoSkymapII.t3_08192x04096_80_pz.jpg',
+        negativeZ: '/stars/TychoSkymapII.t3_08192x04096_80_mz.jpg',
+      }
+    })
+
     // Show FPS counter in the top-left
     // viewer.scene.debugShowFramesPerSecond = true
 
