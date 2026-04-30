@@ -11,10 +11,8 @@ export async function Satellite(viewer: Cesium.Viewer) {
 
   // Fetch TLE and profile data in parallel
   console.time('Fetch data')
-  const [ommData] = await Promise.all([
-    fetchSatelliteData(),
-    fetchSatelliteProfiles()
-  ])
+  const ommData = await fetchSatelliteData()
+  fetchSatelliteProfiles() // Lazy Load profiles in background
   console.timeEnd('Fetch data')
 
   // Create collections (one draw call each)

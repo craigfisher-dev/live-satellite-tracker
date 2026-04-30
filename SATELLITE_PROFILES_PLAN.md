@@ -393,8 +393,8 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
 14. [x] IndexedDB satellite profiles caching
     - created src/utils/profileCache.ts with fetchSatelliteProfiles() and getSatelliteProfile()
     - updated satelliteCache.ts: DB_VERSION incremented 1→2, onupgradeneeded now creates both 'cache' (TLE) and 'satellites' (profiles) tables
-    - updated SatelliteTracker.ts: parallel fetching with Promise.all([fetchSatelliteData(), fetchSatelliteProfiles()])
-    - profiles bulk fetched on app load: ~7.7s initial (all 68,662), ~630ms cached (24hr expiry)
+    - updated SatelliteTracker.ts: lazy load profiles — await fetchSatelliteData() (~490ms), then fetchSatelliteProfiles() without await (loads in background ~4.8s)
+    - app shows globe with TLE data faster (~490ms), profiles populate IndexedDB in background
     - fallback hierarchy: IndexedDB cache → API fetch → stale cache → error
     - profiles ready in IndexedDB for SatelliteInfoPanel component lookups by norad_id
 15. [ ] `SatelliteInfoPanel.tsx` in the frontend
