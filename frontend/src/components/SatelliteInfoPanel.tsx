@@ -287,7 +287,6 @@ const panelStyle: React.CSSProperties = {
   width: 225,
   maxHeight: 'calc(100vh - 100px)',
   background: 'rgba(0, 0, 0, 0.8)',
-  backdropFilter: 'blur(12px)',
   borderRadius: 12,
   border: '1px solid rgba(255,255,255,0.1)',
   color: '#f0ede8',
@@ -353,13 +352,13 @@ const imageWrapStyle: React.CSSProperties = {
   width: '100%',
   aspectRatio: '16/9',
   overflow: 'hidden',
-  background: 'rgba(255,255,255,0.04)',
+  background: 'rgba(0,0,0,0.8)',
 }
 
 const imageStyle: React.CSSProperties = {
   width: '100%',
   height: '100%',
-  objectFit: 'contain',
+  objectFit: 'cover',
   objectPosition: 'center',
   display: 'block',
 }

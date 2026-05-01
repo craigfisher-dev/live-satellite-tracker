@@ -397,7 +397,7 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
     - app shows globe with TLE data faster (~490ms), profiles populate IndexedDB in background
     - fallback hierarchy: IndexedDB cache → API fetch → stale cache → error
     - profiles ready in IndexedDB for SatelliteInfoPanel component lookups by norad_id
-15. [~] `SatelliteInfoPanel.tsx` in the frontend (~60% done)
+15. [~] `SatelliteInfoPanel.tsx` in the frontend (~70% done)
     - created src/components/SatelliteInfoPanel.tsx
     - panel opens on satellite click, closes on empty space click or X button
     - same satellite click guard — no panel reload if already selected
@@ -409,7 +409,12 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
     - styled to match Cesium help panel: 225px wide, rgba(0,0,0,0.8), same max-height cutoff, scrollbar hidden
     - added @keyframes spin to index.css, webkit scrollbar hide rule
     - Clock.tsx updated: toUTCString().replace('GMT', 'UTC')
-    - still needs: image/description verification, styling polish, info tool tip to describe what each label means, full unit and integration testing
+    - notFound state added: shows satellite train explanation after 30s retry exhaustion
+    - error state added: shows red message on real IndexedDB failures
+    - operator, credit, caption fields added to interface and API response
+    - removed backdropFilter blur — caused WebGL canvas tearing behind the panel
+    - image displays in 16/9 slot with objectFit cover
+    - still needs: replace vertical satellite images in satellite_images table with landscape equivalents to fit 16/9 slot, description verification, styling polish, full unit and integration testing
 16. [ ] Satellite count display in the frontend
 17. [ ] Terraform — manage Vercel project config/env vars + import existing DigitalOcean Droplet into Terraform state
 18. [ ] GitHub Actions CI/CD — builds Docker image, pushes to Docker Hub, deploys to Vercel
