@@ -25,3 +25,6 @@ dist-ssr
 
 # Kubernetes Secretes
 worker/k8s/secrets.yaml
+
+# starmap_2020_8k.png file to big for github
+public/stars/*.png
