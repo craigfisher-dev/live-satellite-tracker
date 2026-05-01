@@ -14,7 +14,7 @@ const speeds = [-1000, -500, -100, -10, -1, 1, 10, 100, 500, 1000]
 const speedLength : number = speeds.length
 
 function Clock({simTime, isPaused, simSpeed, setSimTime, setIsPaused, setSimSpeed}: ClockProps) {
-    const utcString = simTime.toUTCString()
+    const utcString = simTime.toUTCString().replace('GMT', 'UTC')
 
     const color = '#60a5fa' // soft blue
 
