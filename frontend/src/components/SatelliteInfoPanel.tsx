@@ -72,6 +72,7 @@ export function SatelliteInfoPanel({ noradId, omm, livePosition, onClose }: Sate
   const [error, setError] = useState<string | null>(null)
   const [imgError, setImgError] = useState(false)
   const [showOrbital, setShowOrbital] = useState(false)
+  const [notFound, setNotFound] = useState(false)
 
 
   const load = useCallback(async (id: number) => {
@@ -79,6 +80,7 @@ export function SatelliteInfoPanel({ noradId, omm, livePosition, onClose }: Sate
     setError(null)
     setImgError(false)
     setProfile(null)
+    setNotFound(false)
 
     // Profiles may still be bulk-loading into IndexedDB in the background.
     // Retry every 500ms for up to 30 seconds before giving up.
@@ -95,7 +97,7 @@ export function SatelliteInfoPanel({ noradId, omm, livePosition, onClose }: Sate
         }
       } catch {
         // IndexedDB error — stop retrying
-        setError('Failed to read from local cache.')
+        setError('Failed to load profile. Try refreshing.')
         setLoading(false)
         return
       }
@@ -104,8 +106,8 @@ export function SatelliteInfoPanel({ noradId, omm, livePosition, onClose }: Sate
       await new Promise(res => setTimeout(res, RETRY_MS))
     }
 
-    // Gave up after 30s — profiles never loaded
-    setError('Profile data unavailable. Try refreshing.')
+    // Gave up after 30s — satellite not yet in DB, likely a new launch or satellite train
+    setNotFound(true)
     setLoading(false)
   }, [])
 
@@ -135,9 +137,20 @@ export function SatelliteInfoPanel({ noradId, omm, livePosition, onClose }: Sate
           </div>
         )}
 
+        {notFound && !loading && (
+          <div style={stateStyle}>
+            <p style={{ color: 'white', fontSize: 11, textAlign: 'center', margin: 0, lineHeight: 1.6 }}>
+              No data available for this satellite yet.
+            </p>
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, textAlign: 'center', margin: 0, lineHeight: 1.6 }}>
+              This may be part of a newly launched satellite train. A satellite train is a group of satellites deployed together from a single rocket that appear as a line of dots moving in formation. Profile data is typically available within 24 hours. Check back after the next TLE update.
+            </p>
+          </div>
+        )}
+
         {error && !loading && (
           <div style={stateStyle}>
-            <span style={{ color: '#E24B4A', fontSize: 12 }}>{error}</span>
+            <span style={{ color: '#E24B4A', fontSize: 11 }}>{error}</span>
           </div>
         )}
 
@@ -346,7 +359,8 @@ const imageWrapStyle: React.CSSProperties = {
 const imageStyle: React.CSSProperties = {
   width: '100%',
   height: '100%',
-  objectFit: 'cover',
+  objectFit: 'contain',
+  objectPosition: 'center',
   display: 'block',
 }
 
