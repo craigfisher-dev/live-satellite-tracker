@@ -52,12 +52,12 @@ function App() {
 
     viewer.scene.skyBox = new Cesium.SkyBox({
       sources: {
-        positiveX: '/stars/debug_skybox_px.jpg',    // Need to fix
-        negativeX: '/stars/debug_skybox_nx.jpg',    // Need to fix
-        positiveY: '/stars/skybox_py.jpg',    // working — keep
-        negativeY: '/stars/skybox_ny.jpg',    // working — keep
-        positiveZ: '/stars/skybox_pz.jpg',    // working — keep
-        negativeZ: '/stars/skybox_nz.jpg',    // working — keep
+        positiveX: '/stars/TychoSkymapII.t3_08192x04096_80_px.jpg',
+        negativeX: '/stars/TychoSkymapII.t3_08192x04096_80_mx.jpg',
+        positiveY: '/stars/TychoSkymapII.t3_08192x04096_80_py.jpg',
+        negativeY: '/stars/TychoSkymapII.t3_08192x04096_80_my.jpg',
+        positiveZ: '/stars/TychoSkymapII.t3_08192x04096_80_pz.jpg',
+        negativeZ: '/stars/TychoSkymapII.t3_08192x04096_80_mz.jpg',
       }
     })
 
