@@ -2,15 +2,22 @@ import * as Cesium from 'cesium'
 import * as satellite from 'satellite.js'
 import { fetchSatelliteData } from './satelliteCache'
 import { getActiveFilter, onFilterChange } from './SatelliteFilter'
+import { fetchSatelliteProfiles } from './profileCache'
 
-export async function Satellite(viewer: Cesium.Viewer) {
+export async function Satellite(
+  viewer: Cesium.Viewer,
+  // Called when user clicks a satellite (passes NORAD ID + full omm) or empty space (null, null)
+  onSatelliteClick: (noradId: number | null, omm: any | null) => void,
+  // Called once per second with the selected satellite's live lat/lon/alt
+  onPositionUpdate: (lat: number, lon: number, alt: number) => void
+) {
 
   console.time('Total Satellite init')
 
-
-  // Fetch all stations
+  // Fetch TLE and profile data in parallel
   console.time('Fetch data')
   const ommData = await fetchSatelliteData()
+  fetchSatelliteProfiles() // Lazy load profiles in background
   console.timeEnd('Fetch data')
 
   // Create collections (one draw call each)
@@ -29,12 +36,12 @@ export async function Satellite(viewer: Cesium.Viewer) {
   // Track currently selected satellite
   let selectedSatellite: typeof satellites[0] | null = null
 
+  // Throttle position updates to once per second to avoid overwhelming React
+  let lastPositionUpdate = 0
+
   // Create all points and labels once
   console.time('Create satellite objects')
   for (const omm of ommData) {
-
-    // Use for later when adding info panel
-    // const satelliteName = omm["OBJECT_NAME"]
 
     // Satellite record
     const satrec = satellite.json2satrec(omm)
@@ -47,7 +54,6 @@ export async function Satellite(viewer: Cesium.Viewer) {
       color: getActiveFilter()(omm),
       scaleByDistance: new Cesium.NearFarScalar(1e6, 2, 1e8, 0.5)
     })
-    
 
     // Initialize with empty positions (will fill on click)
     const orbitalPredictionPath = orbitalPredictionPaths.add({
@@ -62,7 +68,6 @@ export async function Satellite(viewer: Cesium.Viewer) {
   }
 
   console.timeEnd('Create satellite objects')
-
   console.timeEnd('Total Satellite init')
 
   // When filter changes, recolor all points
@@ -77,14 +82,14 @@ export async function Satellite(viewer: Cesium.Viewer) {
   function calculateOrbit(sat: typeof satellites[0]) {
     const now = Cesium.JulianDate.toDate(viewer.clock.currentTime)
     const orbitPositions: Cesium.Cartesian3[] = []
-    
+
     // T = 1440 / meanMotion (minutes per orbit)
     // meanMotion is revolutions per day, 1440 minutes in a day
     const orbitalPeriodMinutes = 1440 / sat.meanMotion
-    
+
     // Number of points to draw the orbit
     const numPoints = 90
-    
+
     // Time step between each point
     const timeStepMinutes = orbitalPeriodMinutes / numPoints
 
@@ -102,35 +107,58 @@ export async function Satellite(viewer: Cesium.Viewer) {
     return orbitPositions
   }
 
+  // Click handler
+  const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
 
+  handler.setInputAction((click: { position: Cesium.Cartesian2 }) => {
+    const picked = viewer.scene.pick(click.position)
 
-
-// Click handler
-const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
-
-handler.setInputAction((click: { position: Cesium.Cartesian2 }) => {
-  const picked = viewer.scene.pick(click.position)
-
-  // Clear previous selection - restore original color
-  if (selectedSatellite) {
-    selectedSatellite.orbitalPredictionPath.positions = []
-    // Set back to original pixel size
-    selectedSatellite.point.pixelSize = 3
-  }
-
-  // Check if we clicked a point
-  if (picked && picked.primitive instanceof Cesium.PointPrimitive) {
-    const sat = pointToSatellite.get(picked.primitive)
-    if (sat) {
-      selectedSatellite = sat
-      // Ability to change size right now left it the default of 3 px
-      sat.point.pixelSize = 3
-      sat.orbitalPredictionPath.positions = calculateOrbit(sat)
+    // Clear previous selection - restore original color
+    if (selectedSatellite) {
+      selectedSatellite.orbitalPredictionPath.positions = []
+      // Set back to original pixel size
+      selectedSatellite.point.pixelSize = 3
     }
-  } else {
-    selectedSatellite = null
-  }
-}, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+
+    // Check if we clicked a point
+    if (picked && picked.primitive instanceof Cesium.PointPrimitive) {
+      const sat = pointToSatellite.get(picked.primitive)
+      if (sat) {
+        // Don't reload if same satellite is already selected
+        if (sat === selectedSatellite) return
+        
+        selectedSatellite = sat
+        // Ability to change size right now left it the default of 3 px
+        sat.point.pixelSize = 3
+        sat.orbitalPredictionPath.positions = calculateOrbit(sat)
+        
+        viewer.scene.requestRender()
+        // Propagate position fresh at click time — sat.point.position may still be ZERO
+        const jsDate = Cesium.JulianDate.toDate(viewer.clock.currentTime)
+        const gmst = satellite.gstime(jsDate)
+        const posVel = satellite.propagate(sat.satrec, jsDate)
+        if (posVel && posVel.position && typeof posVel.position !== 'boolean') {
+          const ecf = satellite.eciToEcf(posVel.position, gmst)
+          const cartesian = new Cesium.Cartesian3(ecf.x * 1000, ecf.y * 1000, ecf.z * 1000)
+          const carto = Cesium.Cartographic.fromCartesian(cartesian)
+          onPositionUpdate(
+            Cesium.Math.toDegrees(carto.latitude),
+            Cesium.Math.toDegrees(carto.longitude),
+            carto.height / 1000
+          )
+          lastPositionUpdate = Date.now()
+        }
+
+        // Open the info panel — pass NORAD ID and full omm for orbital elements
+        onSatelliteClick(sat.omm.NORAD_CAT_ID, sat.omm)
+      }
+    } else {
+      selectedSatellite = null
+      // Click on empty space — close the panel
+      onSatelliteClick(null, null)
+      viewer.scene.requestRender()
+    }
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 
   const scratch = new Cesium.Cartesian3()
 
@@ -168,6 +196,18 @@ handler.setInputAction((click: { position: Cesium.Cartesian2 }) => {
     // Update orbit path for selected satellite
     if (selectedSatellite) {
       selectedSatellite.orbitalPredictionPath.positions = calculateOrbit(selectedSatellite)
+
+      // Report live lat/lon/alt to React twice per second (throttled to avoid re-render spam)
+      const now = Date.now()
+      if (now - lastPositionUpdate > 1000) {
+        const carto = Cesium.Cartographic.fromCartesian(selectedSatellite.point.position)
+        onPositionUpdate(
+          Cesium.Math.toDegrees(carto.latitude),
+          Cesium.Math.toDegrees(carto.longitude),
+          carto.height / 1000  // meters to km
+        )
+        lastPositionUpdate = now
+      }
     }
 
     // Calls on next frame

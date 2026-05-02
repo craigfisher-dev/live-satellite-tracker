@@ -1,6 +1,9 @@
 // Database name for IndexedDB
 const DB_NAME = 'satellite_cache'
 
+// Increment this when adding new tables in future
+const DB_VERSION = 2
+
 // Date.now() is in milliseconds, so everything needs to match that
 // 24 hours * 60 min * 60 sec * 1000 ms
 const CACHE_DURATION = 24 * 60 * 60 * 1000
@@ -10,7 +13,7 @@ const CACHE_DURATION = 24 * 60 * 60 * 1000
 // npm run dev → false, npm run build → true
 const API_URL = import.meta.env.PROD 
   ? '/api/satellites'  // Production: Vercel edge cache
-  : 'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=JSON' // Dev: direct (all satellites)
+  : 'https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=JSON' // Dev: just ISS/stations (small)
 
 export async function fetchSatelliteData(): Promise<any[]> {
 
@@ -21,10 +24,19 @@ export async function fetchSatelliteData(): Promise<any[]> {
   // Open (or create) the IndexedDB database
   console.time('IndexedDB open')
   const db = await new Promise<IDBDatabase>((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1)
+    const req = indexedDB.open(DB_NAME, DB_VERSION)
     req.onerror = () => reject(req.error)
     req.onsuccess = () => resolve(req.result)
-    req.onupgradeneeded = () => req.result.createObjectStore('cache')
+    req.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      
+      if (!db.objectStoreNames.contains('cache')) {
+        db.createObjectStore('cache')
+      }
+      if (!db.objectStoreNames.contains('satellites')) {
+        db.createObjectStore('satellites', { keyPath: 'norad_id' })
+      }
+    }
   })
   console.timeEnd('IndexedDB open')
   

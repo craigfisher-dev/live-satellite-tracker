@@ -9,7 +9,7 @@ import Legend from './components/Legend'
 import { Analytics } from "@vercel/analytics/react"
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import { setupHelpPanel } from './utils/HelpPanel'
-
+import { SatelliteInfoPanel } from './components/SatelliteInfoPanel'
 
 function App() {
 
@@ -25,6 +25,11 @@ function App() {
   const [simTime, setSimTime] = useState(new Date())
   const [isPaused, setIsPaused] = useState(false)
   const [simSpeed, setSimSpeed] = useState(1) // 1 = real-time, 60 = 1 min/sec, etc.
+
+  // Track which satellite the user has clicked — null means panel is closed
+  const [selectedNorad, setSelectedNorad] = useState<number | null>(null)
+  const [selectedOmm, setSelectedOmm] = useState<any | null>(null)
+  const [livePosition, setLivePosition] = useState<{ lat: number, lon: number, alt: number } | null>(null)
 
   // Target 60 frames per second for the simulation loop
   const fps = 60
@@ -48,6 +53,17 @@ function App() {
       baseLayer: false,          // Don't load default Bing imagery
       requestRenderMode: true,   // Only re-render when something changes (saves GPU)
       fullscreenButton: false,    // Disables the full screen button
+    })
+
+    viewer.scene.skyBox = new Cesium.SkyBox({
+      sources: {
+        positiveX: '/stars/TychoSkymapII.t3_08192x04096_80_px.jpg',
+        negativeX: '/stars/TychoSkymapII.t3_08192x04096_80_mx.jpg',
+        positiveY: '/stars/TychoSkymapII.t3_08192x04096_80_py.jpg',
+        negativeY: '/stars/TychoSkymapII.t3_08192x04096_80_my.jpg',
+        positiveZ: '/stars/TychoSkymapII.t3_08192x04096_80_pz.jpg',
+        negativeZ: '/stars/TychoSkymapII.t3_08192x04096_80_mz.jpg',
+      }
     })
 
     // Show FPS counter in the top-left
@@ -76,8 +92,12 @@ function App() {
     // Load country border outlines on top of the map
     loadCountryBorders(viewer)
 
-    // Load satellites
-    Satellite(viewer)
+    // Load satellites and wire up the info panel callback
+    Satellite(
+      viewer,
+      (noradId, omm) => { setSelectedNorad(noradId); setSelectedOmm(omm)},
+      (lat, lon, alt) => setLivePosition({ lat, lon, alt })
+    )
 
     // Cleanup function - runs when component unmounts
     // Important: Cesium uses lots of GPU resources, must clean up properly
@@ -153,6 +173,13 @@ function App() {
       <Analytics />
       {/* Vercel Speed Insights */}
       <SpeedInsights/>
+      {/* Satellite info panel - renders when user clicks a satellite, null closes it */}
+      <SatelliteInfoPanel
+        noradId={selectedNorad}
+        omm={selectedOmm}
+        livePosition={livePosition}
+        onClose={() => { setSelectedNorad(null); setSelectedOmm(null); setLivePosition(null) }}
+      />
     </>
   )
 }

@@ -1,0 +1,17 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment variables — never copy secrets into the container
+.env
+
+# Git
+.git
+.gitignore
+
+# Kubernetes + secretes
+k8s/
+
+# Diagnostic scripts — not part of the pipeline
+check_overlap.py

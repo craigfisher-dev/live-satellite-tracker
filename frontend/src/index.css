@@ -13,3 +13,11 @@
   --ease-snappy: cubic-bezier(0.2, 0, 0, 1);
   
 }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.satellite-info-panel > div::-webkit-scrollbar {
+  display: none;
+}

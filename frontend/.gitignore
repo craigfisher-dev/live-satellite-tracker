@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Kubernetes Secretes
+worker/k8s/secrets.yaml
