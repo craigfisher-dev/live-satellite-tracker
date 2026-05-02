@@ -293,7 +293,7 @@ const panelStyle: React.CSSProperties = {
   position: 'fixed',
   top: 43,
   right: 7,
-  width: 225,
+  width: 250,     // Note: change to 225 if you want to be same size as HelpPanel.tsx
   maxHeight: 'calc(100vh - 100px)',
   background: 'rgba(0, 0, 0, 0.8)',
   borderRadius: 12,
