@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { getSatelliteProfile } from '../utils/profileCache'
 
 interface SatelliteProfile {
@@ -73,43 +73,52 @@ export function SatelliteInfoPanel({ noradId, omm, livePosition, onClose }: Sate
   const [imgError, setImgError] = useState(false)
   const [showOrbital, setShowOrbital] = useState(false)
   const [notFound, setNotFound] = useState(false)
-
+  const loadIdRef = useRef(0)
 
   const load = useCallback(async (id: number) => {
-    setLoading(true)
-    setError(null)
-    setImgError(false)
-    setProfile(null)
-    setNotFound(false)
+  const currentLoadId = ++loadIdRef.current
 
-    // Profiles may still be bulk-loading into IndexedDB in the background.
-    // Retry every 500ms for up to 30 seconds before giving up.
-    const MAX_ATTEMPTS = 60
-    const RETRY_MS = 500
+  setLoading(true)
+  setError(null)
+  setImgError(false)
+  setProfile(null)
+  setNotFound(false)
 
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      try {
-        const data = await getSatelliteProfile(id)
-        if (data) {
-          setProfile(data)
-          setLoading(false)
-          return
-        }
-      } catch {
-        // IndexedDB error — stop retrying
-        setError('Failed to load profile. Try refreshing.')
+  // Profiles may still be bulk-loading into IndexedDB in the background.
+  // Retry every 500ms for up to 30 seconds before giving up.
+  const MAX_ATTEMPTS = 60
+  const RETRY_MS = 500
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    // A newer load started (user clicked a different satellite) — bail out
+    if (loadIdRef.current !== currentLoadId) return
+
+    try {
+      const data = await getSatelliteProfile(id)
+      if (data) {
+        // Check again after await — another load may have started while we were waiting
+        if (loadIdRef.current !== currentLoadId) return
+        setProfile(data)
         setLoading(false)
         return
       }
-
-      // Not in IndexedDB yet — wait and retry
-      await new Promise(res => setTimeout(res, RETRY_MS))
+    } catch {
+      // IndexedDB error — stop retrying
+      if (loadIdRef.current !== currentLoadId) return
+      setError('Failed to load profile. Try refreshing.')
+      setLoading(false)
+      return
     }
 
-    // Gave up after 30s — satellite not yet in DB, likely a new launch or satellite train
-    setNotFound(true)
-    setLoading(false)
-  }, [])
+    // Not in IndexedDB yet — wait and retry
+    await new Promise(res => setTimeout(res, RETRY_MS))
+  }
+
+  // Gave up after 30s — satellite not yet in DB, likely a new launch or satellite train
+  if (loadIdRef.current !== currentLoadId) return
+  setNotFound(true)
+  setLoading(false)
+}, [])
 
   useEffect(() => {
     if (noradId !== null) load(noradId)

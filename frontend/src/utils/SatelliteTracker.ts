@@ -132,6 +132,7 @@ export async function Satellite(
         sat.point.pixelSize = 3
         sat.orbitalPredictionPath.positions = calculateOrbit(sat)
         
+        viewer.scene.requestRender()
         // Propagate position fresh at click time — sat.point.position may still be ZERO
         const jsDate = Cesium.JulianDate.toDate(viewer.clock.currentTime)
         const gmst = satellite.gstime(jsDate)
