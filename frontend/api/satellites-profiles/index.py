@@ -4,6 +4,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy import create_engine, text
 import os
 from dotenv import load_dotenv
+import json
 
 load_dotenv()
 
@@ -37,6 +38,22 @@ def get_constellation(name: str) -> str | None:
 def get_satellite_profiles():
     print("satellites-profiles called")
     with engine.connect() as conn:
+        
+        # Check blob cache first — returns immediately if it exists
+        cached = conn.execute(text(
+            "SELECT data FROM response_cache WHERE key = 'satellites-profiles'"
+        )).fetchone()
+        if cached:
+            print("SOURCE: Neon blob cache (fast path)")
+            return JSONResponse(
+                content=json.loads(cached.data),
+                headers={
+                    "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=86400",
+                    "Access-Control-Allow-Origin": "*",
+                }
+            )
+
+        # Blob cache miss — build from scratch
         satellites = conn.execute(text("SELECT * FROM satellites ORDER BY norad_id")).fetchall()
         print(f"fetched {len(satellites)} satellites from Neon")
         images = conn.execute(text("SELECT * FROM satellite_images")).fetchall()
@@ -67,6 +84,14 @@ def get_satellite_profiles():
                 "credit": image.credit if image else None,
                 "last_updated": row.last_updated.isoformat() if row.last_updated else None,
             })
+
+        # Save blob so next request hits the fast path
+        conn.execute(text("""
+            INSERT INTO response_cache (key, data)
+            VALUES ('satellites-profiles', :data)
+            ON CONFLICT (key) DO UPDATE SET data = :data, cached_at = NOW()
+        """), {"data": json.dumps(profiles)})
+        conn.commit()
 
         print(f"returning {len(profiles)} profiles")
         return JSONResponse(
