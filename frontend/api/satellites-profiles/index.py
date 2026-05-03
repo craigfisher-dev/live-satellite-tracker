@@ -2,7 +2,9 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy import create_engine, text
+from datetime import datetime
 import os
+import json
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,6 +13,11 @@ app = FastAPI()
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 engine = create_engine(os.getenv("DATABASE_URL"))
+
+CACHE_HEADERS = {
+    "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=86400",
+    "Access-Control-Allow-Origin": "*",
+}
 
 def get_constellation(name: str) -> str | None:
     """
@@ -36,7 +43,22 @@ def get_constellation(name: str) -> str | None:
 @app.get("/api/satellites-profiles")
 def get_satellite_profiles():
     print("satellites-profiles called")
+    start = datetime.utcnow()
     with engine.connect() as conn:
+
+        # Check blob cache first — skip if older than 23.9 hours
+        cached = conn.execute(text(
+            "SELECT data, cached_at FROM response_cache WHERE key = 'satellites-profiles'"
+        )).fetchone()
+        if cached:
+            age_hours = (datetime.utcnow() - cached.cached_at).total_seconds() / 3600
+            if age_hours < 23.9:
+                elapsed = (datetime.utcnow() - start).total_seconds() * 1000
+                print(f"SOURCE: Neon blob cache (fast path, {age_hours:.1f}h old, {elapsed:.0f}ms)")
+                return JSONResponse(content=json.loads(cached.data), headers=CACHE_HEADERS)
+            print(f"Blob cache expired ({age_hours:.1f}h old), rebuilding...")
+
+        # Blob cache miss or expired — build from scratch
         satellites = conn.execute(text("SELECT * FROM satellites ORDER BY norad_id")).fetchall()
         print(f"fetched {len(satellites)} satellites from Neon")
         images = conn.execute(text("SELECT * FROM satellite_images")).fetchall()
@@ -68,11 +90,14 @@ def get_satellite_profiles():
                 "last_updated": row.last_updated.isoformat() if row.last_updated else None,
             })
 
-        print(f"returning {len(profiles)} profiles")
-        return JSONResponse(
-            content=profiles,
-            headers={
-                "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=86400",
-                "Access-Control-Allow-Origin": "*",
-            }
-        )
+        # Save blob so next request hits the fast path
+        conn.execute(text("""
+            INSERT INTO response_cache (key, data)
+            VALUES ('satellites-profiles', :data)
+            ON CONFLICT (key) DO UPDATE SET data = :data, cached_at = NOW()
+        """), {"data": json.dumps(profiles)})
+        conn.commit()
+
+        elapsed = (datetime.utcnow() - start).total_seconds() * 1000
+        print(f"SOURCE: slow path rebuild complete ({elapsed:.0f}ms), returning {len(profiles)} profiles")
+        return JSONResponse(content=profiles, headers=CACHE_HEADERS)
