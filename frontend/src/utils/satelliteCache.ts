@@ -2,7 +2,7 @@
 const DB_NAME = 'satellite_cache'
 
 // Increment this when adding new tables in future
-const DB_VERSION = 2
+const DB_VERSION = 3
 
 // Date.now() is in milliseconds, so everything needs to match that
 // 24 hours * 60 min * 60 sec * 1000 ms
@@ -32,9 +32,6 @@ export async function fetchSatelliteData(): Promise<any[]> {
       
       if (!db.objectStoreNames.contains('cache')) {
         db.createObjectStore('cache')
-      }
-      if (!db.objectStoreNames.contains('satellites')) {
-        db.createObjectStore('satellites', { keyPath: 'norad_id' })
       }
     }
   })

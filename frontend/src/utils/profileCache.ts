@@ -2,7 +2,7 @@
 const DB_NAME = 'satellite_cache'
 
 // Increment this when adding new tables in future
-const DB_VERSION = 2
+const DB_VERSION = 3
 
 // 24 hours in milliseconds
 const CACHE_DURATION = 24 * 60 * 60 * 1000
@@ -25,7 +25,8 @@ function openDB(): Promise<IDBDatabase> {
 
 /**
  * Fetch all satellite profiles from FastAPI
- * Stores them in the 'satellites' IndexedDB table with 24hr cache
+ * Stores entire profiles array as a single blob in the 'cache' store (same pattern as satelliteCache.ts)
+ * One write instead of 68k individual puts — significantly faster
  */
 export async function fetchSatelliteProfiles(): Promise<any[]> {
   console.time('Total fetchSatelliteProfiles')
@@ -37,17 +38,16 @@ export async function fetchSatelliteProfiles(): Promise<any[]> {
   const db = await openDB()
   console.timeEnd('IndexedDB open')
 
-  // Try to get cached profiles
+  // Try to get cached profiles from cache store (same pattern as satelliteCache.ts)
   console.time('IndexedDB read')
   const cached = await new Promise<any>((resolve) => {
-    const tx = db.transaction('satellites', 'readonly')
-    const req = tx.objectStore('satellites').get('_metadata')
+    const req = db.transaction('cache', 'readonly').objectStore('cache').get('profiles')
     req.onsuccess = () => resolve(req.result)
     req.onerror = () => resolve(null)
   })
   console.timeEnd('IndexedDB read')
 
-  // Cache hit: profiles exist and haven't expired
+  // Cache hit: profiles exist and haven't expired — return blob directly
   if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
     const cacheAge = Math.round((Date.now() - cached.timestamp) / 1000 / 60)
     console.log(`SOURCE: IndexedDB profiles cache (${cacheAge} minutes old)`)
@@ -83,27 +83,10 @@ export async function fetchSatelliteProfiles(): Promise<any[]> {
 
   console.log(`Profile count: ${profiles.length}`)
 
-  // Store fresh data in IndexedDB
+  // Store entire profiles array as single blob — one write instead of 68k individual puts
+  // Same pattern as satelliteCache.ts which stores TLE data
   console.time('IndexedDB write')
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction('satellites', 'readwrite')
-    const store = tx.objectStore('satellites')
-
-    store.clear()
-
-    profiles.forEach((profile: any) => {
-      store.put(profile)
-    })
-
-    store.put({
-      norad_id: '_metadata',
-      timestamp: Date.now(),
-      data: profiles
-    })
-
-    tx.oncomplete = () => resolve()
-    tx.onerror = () => reject(tx.error)
-  })
+  db.transaction('cache', 'readwrite').objectStore('cache').put({ data: profiles, timestamp: Date.now() }, 'profiles')
   console.timeEnd('IndexedDB write')
 
   console.timeEnd('Total fetchSatelliteProfiles')
@@ -111,15 +94,21 @@ export async function fetchSatelliteProfiles(): Promise<any[]> {
 }
 
 /**
- * Get a single satellite profile by norad_id from IndexedDB
+ * Get a single satellite profile by norad_id
+ * Reads the cached blob and finds the profile in memory — no individual row lookup needed
  */
 export async function getSatelliteProfile(noradId: number): Promise<any | null> {
   const db = await openDB()
 
-  return new Promise((resolve) => {
-    const tx = db.transaction('satellites', 'readonly')
-    const req = tx.objectStore('satellites').get(noradId)
-    req.onsuccess = () => resolve(req.result || null)
+  // Read the profiles blob from cache store
+  const cached = await new Promise<any>((resolve) => {
+    const req = db.transaction('cache', 'readonly').objectStore('cache').get('profiles')
+    req.onsuccess = () => resolve(req.result)
     req.onerror = () => resolve(null)
   })
+
+  if (!cached) return null
+
+  // Find profile in memory — fast array search, no DB roundtrip needed
+  return cached.data.find((p: any) => p.norad_id === noradId) || null
 }
