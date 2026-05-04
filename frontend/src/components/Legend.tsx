@@ -55,25 +55,28 @@ export default function Legend() {
 
   return (
     <div style={{
-      background: 'rgba(0, 0, 0, 0.7)',
-      borderRadius: '8px',
-      padding: '12px',
+      background: 'rgba(0, 0, 0, 0.8)',
+      borderRadius: '12px',
+      padding: '6px 12px',
       color: 'white',
-      fontFamily: 'sans-serif',
-      fontSize: '13px',
-      minWidth: '120px',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      fontSize: '12px',
+      width: 'auto',
+      border: '1px solid rgba(255,255,255,0.1)',
+      overflow: 'hidden',
+      maxHeight: 'calc(100vh - 64px)'
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-        <button onClick={handlePrev} className="p-1 bg-black/70 rounded">
+        <button onClick={handlePrev} className="p-1">
           <ChevronLeft className="w-4 h-4 text-white" />
         </button>
         <span style={{ fontWeight: 'bold' }}>{currentFilter.title}</span>
-        <button onClick={handleNext} className="p-1 bg-black/70 rounded">
+        <button onClick={handleNext} className="p-1">
           <ChevronRight className="w-4 h-4 text-white" />
         </button>
       </div>
 
-      <div style={{ textAlign: 'center', fontSize: '11px', color: '#aaa', marginBottom: '8px' }}>
+      <div style={{ textAlign: 'center', fontSize: '12px', color: '#aaa', marginBottom: '4px' }}>
         {currentPage + 1} / {totalPages}
       </div>
 

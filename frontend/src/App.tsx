@@ -146,8 +146,8 @@ function App() {
       {/* Legend UI */}
       <div style={{
         position: 'fixed',
-        top: '20px',
-        left: '20px',
+        top: '7px', // Lines up with buttons on other side
+        left: '7px',
         zIndex: 1000
       }}>
         <Legend />
