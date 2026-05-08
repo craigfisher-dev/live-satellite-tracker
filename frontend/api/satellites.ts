@@ -1,4 +1,4 @@
-import { put, get, head } from '@vercel/blob';
+import { put, get } from '@vercel/blob';
 import { gzipSync } from 'zlib';
 
 export const config = {
@@ -10,46 +10,28 @@ export default async function handler(req: any, res: any) {
 
   try {
     console.log('[satellites] Checking Blob cache...');
+    const cached = await get('satellites-cache.gz', {
+      access: 'private',
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    });
 
-    // head() first — simple op, just metadata, no download
-    let blobMeta = null;
-    try {
-      blobMeta = await head('satellites-cache.gz', {
-        token: process.env.BLOB_READ_WRITE_TOKEN,
-      });
-    } catch {
-      console.log('[satellites] Blob does not exist yet');
-    }
-
-    if (blobMeta) {
-      const ageMs = Date.now() - new Date(blobMeta.uploadedAt).getTime();
+    if (cached) {
+      const ageMs = Date.now() - new Date(cached.blob.uploadedAt).getTime();
       const ageHours = (ageMs / 1000 / 60 / 60).toFixed(1);
       const isExpired = ageMs > 24 * 60 * 60 * 1000;
 
       if (!isExpired) {
-        // Only download if we know it's fresh
-        console.log(`[satellites] Cache fresh (${ageHours}h old), downloading...`);
-        const cached = await get(blobMeta.url, {
-          access: 'private',
-          token: process.env.BLOB_READ_WRITE_TOKEN,
-        });
-
-        if (cached) {
-          const buffer = Buffer.from(await new Response(cached.stream).arrayBuffer());
-          console.log(`[satellites] SOURCE: Blob cache hit (${ageHours}h old, ${Date.now() - start}ms)`);
-          res.setHeader('Content-Type', 'application/json');
-          res.setHeader('Content-Encoding', 'gzip');
-          res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=86400');
-          res.setHeader('Access-Control-Allow-Origin', '*');
-          res.setHeader('x-cache-source', 'blob');
-          return res.send(buffer);
-        }
-
-        console.log('[satellites] get() returned null, falling through to CelesTrak...');
-      } else {
-        // Expired — skip download entirely, go straight to CelesTrak
-        console.log(`[satellites] Blob expired (${ageHours}h old), refreshing from CelesTrak...`);
+        console.log(`[satellites] SOURCE: Blob cache hit (${ageHours}h old, ${Date.now() - start}ms)`);
+        const buffer = Buffer.from(await new Response(cached.stream).arrayBuffer());
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Encoding', 'gzip');
+        res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=86400');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('x-cache-source', 'blob');
+        return res.send(buffer);
       }
+
+      console.log(`[satellites] Blob expired (${ageHours}h old), refreshing from CelesTrak...`);
     }
 
     console.log('[satellites] SOURCE: Fetching from CelesTrak...');
