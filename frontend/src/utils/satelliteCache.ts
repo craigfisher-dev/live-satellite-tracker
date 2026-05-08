@@ -8,11 +8,11 @@ const DB_VERSION = 3
 // 24 hours * 60 min * 60 sec * 1000 ms
 const CACHE_DURATION = 24 * 60 * 60 * 1000
 
-// Use Vercel edge function in production, direct API in dev
+// Use Vercel serverless function in production, direct API in dev
 // import.meta.env.PROD is built into Vite automatically - no config needed
 // npm run dev → false, npm run build → true
 const API_URL = import.meta.env.PROD 
-  ? '/api/satellites'  // Production: Vercel edge cache
+  ? '/api/satellites'  // Production: Vercel serverless function with Blob cache
   : 'https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=JSON' // Dev: just ISS/stations (small)
 
 export async function fetchSatelliteData(): Promise<any[]> {
@@ -76,24 +76,26 @@ export async function fetchSatelliteData(): Promise<any[]> {
     throw new Error(`Failed to fetch satellite data: ${res.status}`)
   }
 
-  // Log Vercel cache status (only works in production)
-  // x-vercel-cache header values:
-  // HIT = served from Vercel edge cache (fast)
-  // STALE = served stale while fetching fresh in background
-  // MISS = had to fetch from CelesTrak (first request or cache expired)
+  // Log Vercel cache and blob source
+  // x-vercel-cache: HIT = CDN served it, STALE = stale CDN, MISS = function ran
+  // x-cache-source: blob = served from Vercel Blob, celestrak = fetched fresh from CelesTrak
   const cacheStatus = res.headers.get('x-vercel-cache')
+  const cacheSource = res.headers.get('x-cache-source')
   const age = res.headers.get('age')
   
   console.log('Response headers:')
   console.log(`  x-vercel-cache: ${cacheStatus || 'N/A (dev mode)'}`)
+  console.log(`  x-cache-source: ${cacheSource || 'N/A'}`)
   console.log(`  age: ${age ? age + ' seconds' : 'N/A'}`)
   
   if (cacheStatus === 'HIT') {
-    console.log('SOURCE: Vercel Edge Cache')
+    console.log('SOURCE: Vercel CDN cache')
   } else if (cacheStatus === 'STALE') {
-    console.log('SOURCE: Vercel Edge Cache (stale, revalidating)')
-  } else if (cacheStatus === 'MISS') {
-    console.log('SOURCE: Vercel Edge Function (fresh from CelesTrak)')
+    console.log('SOURCE: Vercel CDN cache (stale, revalidating)')
+  } else if (cacheSource === 'blob') {
+    console.log('SOURCE: Vercel Blob cache')
+  } else if (cacheSource === 'celestrak') {
+    console.log('SOURCE: CelesTrak (Blob miss or expired)')
   } else {
     console.log('SOURCE: Direct from CelesTrak (dev mode)')
   }

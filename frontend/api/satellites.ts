@@ -27,6 +27,7 @@ export default async function handler(req: any, res: any) {
         res.setHeader('Content-Encoding', 'gzip');
         res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=86400');
         res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('x-cache-source', 'blob');
         return res.send(buffer);
       }
 
@@ -90,6 +91,7 @@ export default async function handler(req: any, res: any) {
     res.setHeader('Content-Encoding', 'gzip');
     res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=86400');
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('x-cache-source', 'celestrak');
     return res.send(compressed);
 
   } catch (error) {
