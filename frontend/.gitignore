@@ -25,3 +25,5 @@ dist-ssr
 
 # Kubernetes Secretes
 worker/k8s/secrets.yaml
+.vercel
+.env*.local
