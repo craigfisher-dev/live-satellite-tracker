@@ -1,5 +1,10 @@
 {
   "framework": "vite",
+  "functions": {
+    "api/satellites.ts": {
+      "maxDuration": 30
+    }
+  },
   "crons": [
     {
       "path": "/api/satellites",

@@ -1,22 +1,14 @@
 import { put, get } from '@vercel/blob';
+import { gzipSync } from 'zlib';
 
 export const config = {
-  runtime: 'edge',
+  runtime: 'nodejs',
 }
 
-async function compress(data: string): Promise<ArrayBuffer> {
-  const stream = new CompressionStream('gzip');
-  const writer = stream.writable.getWriter();
-  writer.write(new TextEncoder().encode(data));
-  writer.close();
-  return new Response(stream.readable).arrayBuffer();
-}
-
-export default async function handler() {
+export default async function handler(req: any, res: any) {
   const start = Date.now();
 
   try {
-    // Try Blob first
     console.log('[satellites] Checking Blob cache...');
     const cached = await get('satellites-cache.gz', {
       access: 'private',
@@ -24,31 +16,36 @@ export default async function handler() {
     });
 
     if (cached) {
-      console.log(`[satellites] SOURCE: Blob cache hit (${Date.now() - start}ms)`);
-      return new Response(cached.stream, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Encoding': 'gzip',
-          'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=86400',
-          'Access-Control-Allow-Origin': '*',
-        },
-      });
+      const ageMs = Date.now() - new Date(cached.blob.uploadedAt).getTime();
+      const ageHours = (ageMs / 1000 / 60 / 60).toFixed(1);
+      const isExpired = ageMs > 24 * 60 * 60 * 1000;
+
+      if (!isExpired) {
+        console.log(`[satellites] SOURCE: Blob cache hit (${ageHours}h old, ${Date.now() - start}ms)`);
+        const buffer = Buffer.from(await new Response(cached.stream).arrayBuffer());
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Encoding', 'gzip');
+        res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=86400');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return res.send(buffer);
+      }
+
+      console.log(`[satellites] Blob expired (${ageHours}h old), refreshing from CelesTrak...`);
     }
 
-    // Blob miss — fetch from CelesTrak
-    console.log('[satellites] SOURCE: Blob miss, fetching from CelesTrak...');
+    console.log('[satellites] SOURCE: Fetching from CelesTrak...');
     const fetchStart = Date.now();
-    const res = await fetch(
+    const response = await fetch(
       'https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=JSON'
     );
-    console.log(`[satellites] CelesTrak fetch: ${Date.now() - fetchStart}ms, status: ${res.status}`);
+    console.log(`[satellites] CelesTrak fetch: ${Date.now() - fetchStart}ms, status: ${response.status}`);
 
-    if (!res.ok) {
-      console.error(`[satellites] CelesTrak error: ${res.status}`);
-      return new Response('Failed to fetch satellite data', { status: 502 });
+    if (!response.ok) {
+      console.error(`[satellites] CelesTrak error: ${response.status}`);
+      return res.status(502).send('Failed to fetch satellite data');
     }
 
-    const fullData = await res.json();
+    const fullData = await response.json();
     console.log(`[satellites] Fetched ${fullData.length} satellites from CelesTrak`);
 
     const trimmedData = fullData.map((sat: any) => ({
@@ -74,12 +71,10 @@ export default async function handler() {
     const body = JSON.stringify(trimmedData);
     console.log(`[satellites] Uncompressed size: ${(body.length / 1024 / 1024).toFixed(2)}MB`);
 
-    // Compress with gzip
     const compressStart = Date.now();
-    const compressed = await compress(body);
+    const compressed = gzipSync(Buffer.from(body));
     console.log(`[satellites] Compressed size: ${(compressed.byteLength / 1024 / 1024).toFixed(2)}MB (${Date.now() - compressStart}ms)`);
 
-    // Store compressed in Blob
     console.log('[satellites] Storing in Blob...');
     const blobStart = Date.now();
     await put('satellites-cache.gz', compressed, {
@@ -91,16 +86,14 @@ export default async function handler() {
     console.log(`[satellites] Blob stored (${Date.now() - blobStart}ms)`);
 
     console.log(`[satellites] Total: ${Date.now() - start}ms`);
-    return new Response(compressed, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Encoding': 'gzip',
-        'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=86400',
-        'Access-Control-Allow-Origin': '*',
-      },
-    });
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Encoding', 'gzip');
+    res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=86400');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    return res.send(compressed);
+
   } catch (error) {
     console.error(`[satellites] Error: ${error} (${Date.now() - start}ms)`);
-    return new Response('Error fetching satellite data', { status: 500 });
+    return res.status(500).send('Error fetching satellite data');
   }
 }
