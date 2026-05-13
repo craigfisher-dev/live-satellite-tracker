@@ -55,7 +55,9 @@ async def get_satellite_profiles():
     try:
         result = await client.get(BLOB_FILENAME, access="private")
         if result and result.status_code == 200:
-            uploaded_at = result.blob.uploaded_at.replace(tzinfo=None)
+            # Use head() for metadata — get() stream doesn't expose .blob reliably
+            head = await client.head(BLOB_FILENAME)
+            uploaded_at = head.uploaded_at.replace(tzinfo=None)
             age_hours = (datetime.utcnow() - uploaded_at).total_seconds() / 3600
             if age_hours < 24:
                 elapsed = (datetime.utcnow() - start).total_seconds() * 1000
