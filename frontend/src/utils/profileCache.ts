@@ -80,7 +80,7 @@ export async function fetchSatelliteProfiles(): Promise<any[]> {
   } else if (cacheSource === 'blob') {
     console.log('SOURCE: Vercel Blob cache')
   } else if (cacheSource === 'neon-blob-cache') {
-    console.log('SOURCE: Neon response_cache (Blob fallback)')
+    console.log('SOURCE: Neon response_cache (Blob missing — restoring)')
   } else if (cacheSource === 'neon') {
     console.log('SOURCE: Full Neon rebuild')
   } else {

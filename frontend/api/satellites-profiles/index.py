@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from fastapi.responses import Response, JSONResponse
+from fastapi.responses import Response
 from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy import create_engine, text
 from vercel.blob import AsyncBlobClient
@@ -72,7 +72,7 @@ async def get_satellite_profiles():
     except Exception as e:
         print(f"[satellites-profiles] Blob check failed, falling through to Neon cache: {e}")
 
-    # --- 2. Neon response_cache check (neon-blob-cache) - (fallback if Blob down) ---
+    # --- 2. Neon response_cache check (fallback if Blob missing/expired) ---
     with engine.connect() as conn:
         try:
             cached = conn.execute(text(
@@ -83,10 +83,21 @@ async def get_satellite_profiles():
                 if age_hours < 23.9:
                     elapsed = (datetime.utcnow() - start).total_seconds() * 1000
                     print(f"[satellites-profiles] SOURCE: Neon response_cache hit (neon-blob-cache) ({age_hours:.1f}h old, {elapsed:.0f}ms)")
-                    # ** unpacks CACHE_HEADERS dict and adds x-cache-source on top (like JS spread: {...CACHE_HEADERS})
-                    return JSONResponse(
-                        content=json.loads(cached.data), 
-                        headers={**CACHE_HEADERS, "x-cache-source": "neon-blob-cache"}
+
+                    # Blob was missing/expired — restore it so next request hits the fast path
+                    raw = cached.data.encode() if isinstance(cached.data, str) else cached.data
+                    compressed = gzip.compress(raw)
+                    try:
+                        blob_start = datetime.utcnow()
+                        await client.put(BLOB_FILENAME, compressed, access="private", overwrite=True, content_type="application/octet-stream")
+                        print(f"[satellites-profiles] Blob restored from Neon cache ({(datetime.utcnow() - blob_start).total_seconds() * 1000:.0f}ms)")
+                    except Exception as blob_err:
+                        print(f"[satellites-profiles] Blob restore failed (non-fatal): {blob_err}")
+
+                    return Response(
+                        content=compressed,
+                        media_type="application/json",
+                        headers={**CACHE_HEADERS, "Content-Encoding": "gzip", "x-cache-source": "neon-blob-cache"},
                     )
                 print(f"[satellites-profiles] Neon cache expired ({age_hours:.1f}h old), rebuilding...")
         except Exception as e:
