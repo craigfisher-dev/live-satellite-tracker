@@ -63,6 +63,30 @@ export async function fetchSatelliteProfiles(): Promise<any[]> {
   const res = await fetch(PROFILES_API_URL)
   console.timeEnd('API fetch')
 
+  // Log cache source headers
+  const cacheStatus = res.headers.get('x-vercel-cache')
+  const cacheSource = res.headers.get('x-cache-source')
+  const age = res.headers.get('age')
+
+  console.log('Response headers:')
+  console.log(`  x-vercel-cache: ${cacheStatus || 'N/A (dev mode)'}`)
+  console.log(`  x-cache-source: ${cacheSource || 'N/A'}`)
+  console.log(`  age: ${age ? age + ' seconds' : 'N/A'}`)
+
+  if (cacheStatus === 'HIT') {
+    console.log('SOURCE: Vercel CDN cache')
+  } else if (cacheStatus === 'STALE') {
+    console.log('SOURCE: Vercel CDN cache (stale, revalidating)')
+  } else if (cacheSource === 'blob') {
+    console.log('SOURCE: Vercel Blob cache')
+  } else if (cacheSource === 'neon-blob-cache') {
+    console.log('SOURCE: Neon response_cache (Blob fallback)')
+  } else if (cacheSource === 'neon') {
+    console.log('SOURCE: Full Neon rebuild')
+  } else {
+    console.log('SOURCE: Unknown (dev mode?)')
+  }
+
   // Handle failed fetch - use stale cache if available, otherwise throw
   if (!res.ok) {
     console.error(`API error: ${res.status}`)

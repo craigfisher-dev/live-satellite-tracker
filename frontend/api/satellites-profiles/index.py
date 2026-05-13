@@ -1,18 +1,24 @@
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import Response, JSONResponse
 from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy import create_engine, text
+from vercel.blob import AsyncBlobClient
 from datetime import datetime
 import os
 import json
+import gzip
 from dotenv import load_dotenv
 
 load_dotenv()
+
+client = AsyncBlobClient()
 
 app = FastAPI()
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 engine = create_engine(os.getenv("DATABASE_URL"))
+
+BLOB_FILENAME = "satellites-profiles-cache.gz"
 
 CACHE_HEADERS = {
     "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=86400",
@@ -41,28 +47,56 @@ def get_constellation(name: str) -> str | None:
     return None
 
 @app.get("/api/satellites-profiles")
-def get_satellite_profiles():
-    print("satellites-profiles called")
+async def get_satellite_profiles():
+    print("[satellites-profiles] called")
     start = datetime.utcnow()
-    with engine.connect() as conn:
 
-        # Check blob cache first — skip if older than 23.9 hours
-        cached = conn.execute(text(
-            "SELECT data, cached_at FROM response_cache WHERE key = 'satellites-profiles'"
-        )).fetchone()
-        if cached:
-            age_hours = (datetime.utcnow() - cached.cached_at).total_seconds() / 3600
-            if age_hours < 23.9:
+    # --- 1. Blob cache check (fastest path) ---
+    try:
+        result = await client.get(BLOB_FILENAME, access="private")
+        if result and result.status_code == 200:
+            uploaded_at = result.blob.uploaded_at.replace(tzinfo=None)
+            age_hours = (datetime.utcnow() - uploaded_at).total_seconds() / 3600
+            if age_hours < 24:
                 elapsed = (datetime.utcnow() - start).total_seconds() * 1000
-                print(f"SOURCE: Neon blob cache (fast path, {age_hours:.1f}h old, {elapsed:.0f}ms)")
-                return JSONResponse(content=json.loads(cached.data), headers=CACHE_HEADERS)
-            print(f"Blob cache expired ({age_hours:.1f}h old), rebuilding...")
+                print(f"[satellites-profiles] SOURCE: Blob cache hit ({age_hours:.1f}h old, {elapsed:.0f}ms)")
+                chunks = []
+                async for chunk in result.stream:
+                    chunks.append(chunk)
+                return Response(
+                    content=b"".join(chunks),
+                    media_type="application/json",
+                    headers={**CACHE_HEADERS, "Content-Encoding": "gzip", "x-cache-source": "blob"},
+                )
+            print(f"[satellites-profiles] Blob expired ({age_hours:.1f}h old), rebuilding...")
+    except Exception as e:
+        print(f"[satellites-profiles] Blob check failed, falling through to Neon cache: {e}")
 
-        # Blob cache miss or expired — build from scratch
+    # --- 2. Neon response_cache check (neon-blob-cache) - (fallback if Blob down) ---
+    with engine.connect() as conn:
+        try:
+            cached = conn.execute(text(
+                "SELECT data, cached_at FROM response_cache WHERE key = 'satellites-profiles'"
+            )).fetchone()
+            if cached:
+                age_hours = (datetime.utcnow() - cached.cached_at).total_seconds() / 3600
+                if age_hours < 23.9:
+                    elapsed = (datetime.utcnow() - start).total_seconds() * 1000
+                    print(f"[satellites-profiles] SOURCE: Neon response_cache hit (neon-blob-cache) ({age_hours:.1f}h old, {elapsed:.0f}ms)")
+                    # ** unpacks CACHE_HEADERS dict and adds x-cache-source on top (like JS spread: {...CACHE_HEADERS})
+                    return JSONResponse(
+                        content=json.loads(cached.data), 
+                        headers={**CACHE_HEADERS, "x-cache-source": "neon-blob-cache"}
+                    )
+                print(f"[satellites-profiles] Neon cache expired ({age_hours:.1f}h old), rebuilding...")
+        except Exception as e:
+            print(f"[satellites-profiles] Neon cache check failed: {e}")
+
+        # --- 3. Full rebuild from source tables (slow path) ---
         satellites = conn.execute(text("SELECT * FROM satellites ORDER BY norad_id")).fetchall()
-        print(f"fetched {len(satellites)} satellites from Neon")
+        print(f"[satellites-profiles] fetched {len(satellites)} satellites from Neon")
         images = conn.execute(text("SELECT * FROM satellite_images")).fetchall()
-        print(f"fetched {len(images)} images from Neon")
+        print(f"[satellites-profiles] fetched {len(images)} images from Neon")
 
         images_by_norad = {row.norad_id: row for row in images if row.norad_id}
         images_by_constellation = {row.constellation: row for row in images if row.constellation}
@@ -71,7 +105,6 @@ def get_satellite_profiles():
         for row in satellites:
             constellation = get_constellation(row.name)
             image = images_by_norad.get(row.norad_id) or images_by_constellation.get(constellation)
-
             profiles.append({
                 "norad_id": row.norad_id,
                 "name": row.name,
@@ -90,7 +123,7 @@ def get_satellite_profiles():
                 "last_updated": row.last_updated.isoformat() if row.last_updated else None,
             })
 
-        # Save blob so next request hits the fast path
+        # Update Neon response_cache
         conn.execute(text("""
             INSERT INTO response_cache (key, data)
             VALUES ('satellites-profiles', :data)
@@ -98,6 +131,17 @@ def get_satellite_profiles():
         """), {"data": json.dumps(profiles)})
         conn.commit()
 
-        elapsed = (datetime.utcnow() - start).total_seconds() * 1000
-        print(f"SOURCE: slow path rebuild complete ({elapsed:.0f}ms), returning {len(profiles)} profiles")
-        return JSONResponse(content=profiles, headers=CACHE_HEADERS)
+    # Store in Blob for next time
+    compressed = gzip.compress(json.dumps(profiles).encode())
+    blob_start = datetime.utcnow()
+    await client.put(BLOB_FILENAME, compressed, access="private", overwrite=True, content_type="application/octet-stream")
+    print(f"[satellites-profiles] Blob stored ({(datetime.utcnow() - blob_start).total_seconds() * 1000:.0f}ms)")
+
+    elapsed = (datetime.utcnow() - start).total_seconds() * 1000
+    print(f"[satellites-profiles] SOURCE: full rebuild complete ({elapsed:.0f}ms), returning {len(profiles)} profiles")
+
+    return Response(
+        content=compressed,
+        media_type="application/json",
+        headers={**CACHE_HEADERS, "Content-Encoding": "gzip", "x-cache-source": "neon"},
+    )
