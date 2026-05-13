@@ -7,6 +7,7 @@ from datetime import datetime
 import os
 import json
 import gzip
+import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -53,27 +54,26 @@ async def get_satellite_profiles():
 
     # --- 1. Blob cache check (fastest path) ---
     try:
-        result = await client.get(BLOB_FILENAME, access="private")
-        if result and result.status_code == 200:
-            # Use head() for metadata — get() stream doesn't expose .blob reliably
-            head = await client.head(BLOB_FILENAME)
-            uploaded_at = head.uploaded_at.replace(tzinfo=None)
-            age_hours = (datetime.utcnow() - uploaded_at).total_seconds() / 3600
-            if age_hours < 24:
-                elapsed = (datetime.utcnow() - start).total_seconds() * 1000
-                print(f"[satellites-profiles] SOURCE: Blob cache hit ({age_hours:.1f}h old, {elapsed:.0f}ms)")
-                chunks = []
-                async for chunk in result.stream:
-                    chunks.append(chunk)
-                return Response(
-                    content=b"".join(chunks),
-                    media_type="application/json",
-                    headers={**CACHE_HEADERS, "Content-Encoding": "gzip", "x-cache-source": "blob"},
+        head = await client.head(BLOB_FILENAME)
+        uploaded_at = head.uploaded_at.replace(tzinfo=None)
+        age_hours = (datetime.utcnow() - uploaded_at).total_seconds() / 3600
+        if age_hours < 24:
+            elapsed = (datetime.utcnow() - start).total_seconds() * 1000
+            print(f"[satellites-profiles] SOURCE: Blob cache hit ({age_hours:.1f}h old, {elapsed:.0f}ms)")
+            async with httpx.AsyncClient() as http:
+                blob_res = await http.get(
+                    head.url,
+                    headers={"authorization": f"Bearer {os.getenv('BLOB_READ_WRITE_TOKEN')}"},
                 )
-            print(f"[satellites-profiles] Blob expired ({age_hours:.1f}h old), rebuilding...")
+            return Response(
+                content=blob_res.content,
+                media_type="application/json",
+                headers={**CACHE_HEADERS, "Content-Encoding": "gzip", "x-cache-source": "blob"},
+            )
+        print(f"[satellites-profiles] Blob expired ({age_hours:.1f}h old), rebuilding...")
     except Exception as e:
         print(f"[satellites-profiles] Blob check failed, falling through to Neon cache: {e}")
-
+    
     # --- 2. Neon response_cache check (fallback if Blob missing/expired) ---
     with engine.connect() as conn:
         try:
