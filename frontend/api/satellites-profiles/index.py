@@ -8,6 +8,7 @@ import os
 import json
 import gzip
 import httpx
+import uuid
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -26,10 +27,15 @@ CACHE_HEADERS = {
     "Access-Control-Allow-Origin": "*",
 }
 
+def log(logs: list, request_id: str, **kwargs):
+    # Helper to attach request_id to every log entry automatically
+    entry = {"request_id": request_id, **kwargs}
+    logs.append(entry)
+
 async def flush_logs(logs: list):
     # Print all collected logs — always works, shows in Vercel logs for 1 hour
-    for log in logs:
-        print(f"[satellite-tracker] {log}")
+    for entry in logs:
+        print(f"[satellite-tracker] {entry}")
 
     # One single Loki push with all logs as separate entries — one network call total
     try:
@@ -43,8 +49,8 @@ async def flush_logs(logs: list):
                         "stream": {"app": "satellite-tracker"},
                         "values": [
                             # Offset each log by 1ns so they don't collide in Loki
-                            [str(now_ns + i), json.dumps(log)]
-                            for i, log in enumerate(logs)
+                            [str(now_ns + i), json.dumps(entry)]
+                            for i, entry in enumerate(logs)
                         ]
                     }]
                 }
@@ -77,23 +83,31 @@ def get_constellation(name: str) -> str | None:
 @app.get("/api/satellites-profiles")
 async def get_satellite_profiles():
     logs = []  # collect logs throughout, flush once at the end
+    request_id = str(uuid.uuid4())[:8]  # short unique ID ties all logs from this request together
     start = datetime.utcnow()
 
     # --- 1. Blob cache check (fastest path) ---
     try:
+        head_start = datetime.utcnow()
         head = await client.head(BLOB_FILENAME)
+        log(logs, request_id, message="blob head check", status=200, duration_ms=round((datetime.utcnow() - head_start).total_seconds() * 1000))
+
         uploaded_at = head.uploaded_at.replace(tzinfo=None)
         age_hours = (datetime.utcnow() - uploaded_at).total_seconds() / 3600
         if age_hours < 24:
             elapsed = (datetime.utcnow() - start).total_seconds() * 1000
-            logs.append({"message": "blob cache hit", "source": "blob", "age_hours": round(age_hours, 1), "duration_ms": round(elapsed)})
+            log(logs, request_id, message="blob cache hit", source="blob", age_hours=round(age_hours, 1), duration_ms=round(elapsed))
+
+            fetch_start = datetime.utcnow()
             async with httpx.AsyncClient() as http:
                 blob_res = await http.get(
                     head.url,
                     headers={"authorization": f"Bearer {os.getenv('BLOB_READ_WRITE_TOKEN')}"},
                 )
+            log(logs, request_id, message="blob content fetch", status=blob_res.status_code, duration_ms=round((datetime.utcnow() - fetch_start).total_seconds() * 1000))
+
             elapsed = (datetime.utcnow() - start).total_seconds() * 1000
-            logs.append({"message": "request complete", "cache_source": "blob", "total_duration_ms": round(elapsed)})
+            log(logs, request_id, message="request complete", cache_source="blob", total_duration_ms=round(elapsed))
             # flush all logs right before returning — one network call
             await flush_logs(logs)
             return Response(
@@ -101,21 +115,24 @@ async def get_satellite_profiles():
                 media_type="application/json",
                 headers={**CACHE_HEADERS, "Content-Encoding": "gzip", "x-cache-source": "blob"},
             )
-        logs.append({"message": "blob expired", "source": "blob", "age_hours": round(age_hours, 1)})
+        log(logs, request_id, message="blob expired", source="blob", age_hours=round(age_hours, 1))
     except Exception as e:
-        logs.append({"message": "blob check failed", "source": "blob", "error": str(e)})
+        log(logs, request_id, message="blob check failed", source="blob", error=str(e))
 
     # --- 2. Neon response_cache check (fallback if Blob missing/expired) ---
     with engine.connect() as conn:
         try:
+            neon_start = datetime.utcnow()
             cached = conn.execute(text(
                 "SELECT data, cached_at FROM response_cache WHERE key = 'satellites-profiles'"
             )).fetchone()
+            log(logs, request_id, message="neon cache query", duration_ms=round((datetime.utcnow() - neon_start).total_seconds() * 1000))
+
             if cached:
                 age_hours = (datetime.utcnow() - cached.cached_at).total_seconds() / 3600
                 if age_hours < 23.9:
                     elapsed = (datetime.utcnow() - start).total_seconds() * 1000
-                    logs.append({"message": "neon cache hit", "source": "neon-blob-cache", "age_hours": round(age_hours, 1), "duration_ms": round(elapsed)})
+                    log(logs, request_id, message="neon cache hit", source="neon-blob-cache", age_hours=round(age_hours, 1), duration_ms=round(elapsed))
 
                     # Blob was missing/expired — restore it so next request hits the fast path
                     raw = cached.data.encode() if isinstance(cached.data, str) else cached.data
@@ -123,12 +140,12 @@ async def get_satellite_profiles():
                     try:
                         blob_start = datetime.utcnow()
                         await client.put(BLOB_FILENAME, compressed, access="private", overwrite=True, content_type="application/octet-stream")
-                        logs.append({"message": "blob restored from neon", "source": "neon-blob-cache", "duration_ms": round((datetime.utcnow() - blob_start).total_seconds() * 1000)})
+                        log(logs, request_id, message="blob restored from neon", source="neon-blob-cache", duration_ms=round((datetime.utcnow() - blob_start).total_seconds() * 1000))
                     except Exception as blob_err:
-                        logs.append({"message": "blob restore failed", "source": "neon-blob-cache", "error": str(blob_err)})
+                        log(logs, request_id, message="blob restore failed", source="neon-blob-cache", error=str(blob_err))
 
                     elapsed = (datetime.utcnow() - start).total_seconds() * 1000
-                    logs.append({"message": "request complete", "cache_source": "neon-blob-cache", "total_duration_ms": round(elapsed)})
+                    log(logs, request_id, message="request complete", cache_source="neon-blob-cache", total_duration_ms=round(elapsed))
                     # flush all logs right before returning — one network call
                     await flush_logs(logs)
                     return Response(
@@ -136,15 +153,18 @@ async def get_satellite_profiles():
                         media_type="application/json",
                         headers={**CACHE_HEADERS, "Content-Encoding": "gzip", "x-cache-source": "neon-blob-cache"},
                     )
-                logs.append({"message": "neon cache expired", "source": "neon", "age_hours": round(age_hours, 1)})
+                log(logs, request_id, message="neon cache expired", source="neon", age_hours=round(age_hours, 1))
         except Exception as e:
-            logs.append({"message": "neon cache check failed", "source": "neon", "error": str(e)})
+            log(logs, request_id, message="neon cache check failed", source="neon", error=str(e))
 
         # --- 3. Full rebuild from source tables (slow path) ---
+        satellites_start = datetime.utcnow()
         satellites = conn.execute(text("SELECT * FROM satellites ORDER BY norad_id")).fetchall()
-        logs.append({"message": "fetched satellites from neon", "source": "neon", "count": len(satellites)})
+        log(logs, request_id, message="fetched satellites from neon", source="neon", count=len(satellites), duration_ms=round((datetime.utcnow() - satellites_start).total_seconds() * 1000))
+
+        images_start = datetime.utcnow()
         images = conn.execute(text("SELECT * FROM satellite_images")).fetchall()
-        logs.append({"message": "fetched images from neon", "source": "neon", "count": len(images)})
+        log(logs, request_id, message="fetched images from neon", source="neon", count=len(images), duration_ms=round((datetime.utcnow() - images_start).total_seconds() * 1000))
 
         images_by_norad = {row.norad_id: row for row in images if row.norad_id}
         images_by_constellation = {row.constellation: row for row in images if row.constellation}
@@ -172,22 +192,24 @@ async def get_satellite_profiles():
             })
 
         # Update Neon response_cache
+        cache_start = datetime.utcnow()
         conn.execute(text("""
             INSERT INTO response_cache (key, data)
             VALUES ('satellites-profiles', :data)
             ON CONFLICT (key) DO UPDATE SET data = :data, cached_at = NOW()
         """), {"data": json.dumps(profiles)})
         conn.commit()
+        log(logs, request_id, message="neon response_cache updated", duration_ms=round((datetime.utcnow() - cache_start).total_seconds() * 1000))
 
     # Store in Blob for next time
-    compressed = gzip.compress(json.dumps(profiles).encode())
     blob_start = datetime.utcnow()
+    compressed = gzip.compress(json.dumps(profiles).encode())
     await client.put(BLOB_FILENAME, compressed, access="private", overwrite=True, content_type="application/octet-stream")
-    logs.append({"message": "blob stored", "source": "neon", "duration_ms": round((datetime.utcnow() - blob_start).total_seconds() * 1000)})
+    log(logs, request_id, message="blob stored", source="neon", duration_ms=round((datetime.utcnow() - blob_start).total_seconds() * 1000))
 
     elapsed = (datetime.utcnow() - start).total_seconds() * 1000
-    logs.append({"message": "full rebuild complete", "source": "neon", "duration_ms": round(elapsed), "satellite_count": len(profiles)})
-    logs.append({"message": "request complete", "cache_source": "neon", "total_duration_ms": round(elapsed)})
+    log(logs, request_id, message="full rebuild complete", source="neon", duration_ms=round(elapsed), satellite_count=len(profiles))
+    log(logs, request_id, message="request complete", cache_source="neon", total_duration_ms=round(elapsed))
 
     # flush all logs right before returning — one network call
     await flush_logs(logs)
