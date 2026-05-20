@@ -2,7 +2,7 @@
   "framework": "vite",
   "functions": {
     "api/satellites.ts": {
-      "maxDuration": 30
+      "maxDuration": 60
     }
   },
   "crons": [
