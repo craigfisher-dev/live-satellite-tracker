@@ -397,7 +397,7 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
     - app shows globe with TLE data faster (~490ms), profiles populate IndexedDB in background
     - fallback hierarchy: IndexedDB cache → API fetch → stale cache → error
     - profiles ready in IndexedDB for SatelliteInfoPanel component lookups by norad_id
-15. [~] `SatelliteInfoPanel.tsx` in the frontend (~70% done)
+15. [~] `SatelliteInfoPanel.tsx` in the frontend (~80% done)
     - created src/components/SatelliteInfoPanel.tsx
     - panel opens on satellite click, closes on empty space click or X button
     - same satellite click guard — no panel reload if already selected
@@ -417,7 +417,26 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
     - still needs: replace vertical satellite images in satellite_images table with landscape equivalents to fit 16/9 slot, description verification, styling polish, full unit and integration testing
 16. [ ] Satellite count display in the frontend
 17. [ ] Terraform — manage Vercel project config/env vars + import existing DigitalOcean Droplet into Terraform state
-18. [ ] GitHub Actions CI/CD — builds Docker image, pushes to Docker Hub, deploys to Vercel
+18. [x] Automation & Observability
+
+    ### Checkly — Synthetic Monitoring & CDN Warming
+    - [x] Browser check — us-east and us-west, every 6 hours, captures console logs via page.on('console'), asserts cacheSource != 'neon', takes screenshot
+    - [x] API check: CDN-region-check-satellites-profiles — GET /api/satellites-profiles, every 30 minutes, N. Virginia + N. California + Oregon, asserts status 200 and x-vercel-cache: HIT
+    - [x] API check: CDN-region-check-satellites — GET /api/satellites, every 30 minutes, N. Virginia + N. California + Oregon, asserts status 200 and x-vercel-cache: HIT
+    - 3 locations × 48 runs/day × 30 days × 2 endpoints = 8,640 API runs/month
+    - email alerts on failure
+
+    ### Grafana Cloud Loki — Persistent Log Observability
+    - [x] signed up for Grafana Cloud free tier (50GB logs, 14 day retention)
+    - [x] created satellite-tracker access policy with logs:write scope
+    - [x] added LOKI_URL, LOKI_USER, LOKI_TOKEN to Vercel env vars
+    - [x] added flush_logs() to satellites-profiles endpoint — collects structured logs via logs.append() throughout request, single batch push to Loki right before each return, 3s timeout, silent fallback on failure
+    - [x] added log() helper attaching request_id (uuid4 8-char) to every entry
+    - [x] per-operation timing on every external call: blob head check, blob content fetch, neon cache query, fetched satellites, fetched images, blob stored
+    - [x] request complete summary at every return with cache_source and total_duration_ms
+    - [x] bumped maxDuration for api/satellites.ts 30s → 60s (Hobby plan max)
+    - query all logs: {app="satellite-tracker"}
+    - filter single request: {app="satellite-tracker"} | json | request_id="a3f9c2b1"
 19. [ ] pytest coverage for worker and API
 20. [ ] Merge satellite-profiles branch to main
     - SSH into Droplet → git pull origin main
@@ -443,6 +462,7 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
 - Filter satellites by owner / country / purpose
 - Add hardcoded descriptions for major constellations — Starlink, OneWeb, GPS, GLONASS, Galileo, Beidou, Iridium, NOAA, Landsat, ISS, Hubble, James Webb
 - Switch TLE source from CelesTrak to Space-Track for a unified data pipeline (major overhaul of v1 edge function architecture)
+- GitHub Actions CI/CD — builds Docker image, pushes to Docker Hub, deploys to Vercel
 
 ---
 
