@@ -439,10 +439,12 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
     - filter single request: {app="satellite-tracker"} | json | request_id="a3f9c2b1"
 
     ### Grafana Synthetics — CDN Warming (primary)
-    - added API check for /api/satellites — 4 US regions (N. California, Oregon, N. Virginia, Ohio), every 10 minutes, 60s timeout, compression none
-    - added API check for /api/satellites-profiles — same 4 regions, every 10 minutes
+    - added API check for /api/satellites — 4 US regions (N. California, Oregon, N. Virginia, Ohio), every 10 minutes, 60s timeout, HEAD request, zero data transfer
+    - added API check for /api/satellites-profiles — same 4 regions, every 10 minutes, HEAD request
+    - switched from GET to HEAD to eliminate data transfer cost — 6MB response × 34,560 runs/month = ~200GB saved
+    - added HEAD method support to satellites-profiles FastAPI endpoint via @app.api_route
     - 4 locations × 144 runs/day × 30 days × 2 endpoints = 34,560/month (under 100k limit)
-    - switched from Checkly to Grafana for warming — 10x more runs available on free tier
+    - switched from Checkly to Grafana for warming 10x more runs available on free tier
 
 19. [ ] pytest coverage for worker and API
 20. [ ] Merge satellite-profiles branch to main

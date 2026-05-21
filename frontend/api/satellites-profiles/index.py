@@ -80,7 +80,7 @@ def get_constellation(name: str) -> str | None:
     if any(k in name_upper for k in ["SKYSAT", "FLOCK", "PELICAN", "TANAGER"]): return "PLANET"
     return None
 
-@app.get("/api/satellites-profiles")
+@app.api_route("/api/satellites-profiles", methods=["GET", "HEAD"])
 async def get_satellite_profiles():
     logs = []  # collect logs throughout, flush once at the end
     request_id = str(uuid.uuid4())[:8]  # short unique ID ties all logs from this request together
