@@ -419,24 +419,31 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
 17. [ ] Terraform — manage Vercel project config/env vars + import existing DigitalOcean Droplet into Terraform state
 18. [x] Automation & Observability
 
-    ### Checkly — Synthetic Monitoring & CDN Warming
-    - [x] Browser check — us-east and us-west, every 6 hours, captures console logs via page.on('console'), asserts cacheSource != 'neon', takes screenshot
-    - [x] API check: CDN-region-check-satellites-profiles — GET /api/satellites-profiles, every 30 minutes, N. Virginia + N. California + Oregon, asserts status 200 and x-vercel-cache: HIT
-    - [x] API check: CDN-region-check-satellites — GET /api/satellites, every 30 minutes, N. Virginia + N. California + Oregon, asserts status 200 and x-vercel-cache: HIT
-    - 3 locations × 48 runs/day × 30 days × 2 endpoints = 8,640 API runs/month
+    ### Checkly — CDN Monitoring, Cache Verification & Alerting
+    - Browser check — us-east and us-west, every 6 hours, captures console logs via page.on('console'), asserts cacheSource != 'neon', takes screenshot
+    - API check: CDN-region-check-satellites-profiles — GET /api/satellites-profiles, every 2 hours, N. Virginia + N. California + Oregon, asserts status 200 and x-vercel-cache: HIT
+    - API check: CDN-region-check-satellites — GET /api/satellites, every 2 hours, N. Virginia + N. California + Oregon, asserts status 200 and x-vercel-cache: HIT
+    - 3 locations × 12 runs/day × 31 days × 2 endpoints = 2,232 API runs/month
     - email alerts on failure
 
     ### Grafana Cloud Loki — Persistent Log Observability
-    - [x] signed up for Grafana Cloud free tier (50GB logs, 14 day retention)
-    - [x] created satellite-tracker access policy with logs:write scope
-    - [x] added LOKI_URL, LOKI_USER, LOKI_TOKEN to Vercel env vars
-    - [x] added flush_logs() to satellites-profiles endpoint — collects structured logs via logs.append() throughout request, single batch push to Loki right before each return, 3s timeout, silent fallback on failure
-    - [x] added log() helper attaching request_id (uuid4 8-char) to every entry
-    - [x] per-operation timing on every external call: blob head check, blob content fetch, neon cache query, fetched satellites, fetched images, blob stored
-    - [x] request complete summary at every return with cache_source and total_duration_ms
-    - [x] bumped maxDuration for api/satellites.ts 30s → 60s (Hobby plan max)
+    - signed up for Grafana Cloud free tier (50GB logs, 14 day retention)
+    - created satellite-tracker access policy with logs:write scope
+    - added LOKI_URL, LOKI_USER, LOKI_TOKEN to Vercel env vars
+    - added flush_logs() to satellites-profiles endpoint — collects structured logs via logs.append() throughout request, single batch push to Loki right before each return, 3s timeout, silent fallback on failure
+    - added log() helper attaching request_id (uuid4 8-char) to every entry
+    - per-operation timing on every external call: blob head check, blob content fetch, neon cache query, fetched satellites, fetched images, blob stored
+    - request complete summary at every return with cache_source and total_duration_ms
+    - bumped maxDuration for api/satellites.ts 30s → 60s (Hobby plan max)
     - query all logs: {app="satellite-tracker"}
     - filter single request: {app="satellite-tracker"} | json | request_id="a3f9c2b1"
+
+    ### Grafana Synthetics — CDN Warming (primary)
+    - added API check for /api/satellites — 4 US regions (N. California, Oregon, N. Virginia, Ohio), every 10 minutes, 60s timeout, compression none
+    - added API check for /api/satellites-profiles — same 4 regions, every 10 minutes
+    - 4 locations × 144 runs/day × 30 days × 2 endpoints = 34,560/month (under 100k limit)
+    - switched from Checkly to Grafana for warming — 10x more runs available on free tier
+
 19. [ ] pytest coverage for worker and API
 20. [ ] Merge satellite-profiles branch to main
     - SSH into Droplet → git pull origin main
