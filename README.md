@@ -1,6 +1,6 @@
 # Live Satellite Tracker
 
-**Live App**: [https://live-satellite-tracker.vercel.app](https://live-satellite-tracker.vercel.app)
+**Live App**: https://live-satellite-tracker.com/
 
 Real-time 3D visualization of 15,000+ active satellites orbiting Earth. Click any satellite to view its predicted orbital trajectory. Built with React, TypeScript, and CesiumJS, deployed on Vercel.
 
