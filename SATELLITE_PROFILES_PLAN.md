@@ -419,13 +419,6 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
 17. [ ] Terraform — manage Vercel project config/env vars + import existing DigitalOcean Droplet into Terraform state
 18. [x] Automation & Observability
 
-    ### Checkly — CDN Monitoring, Cache Verification & Alerting
-    - Browser check — us-east and us-west, every 6 hours, captures console logs via page.on('console'), asserts cacheSource != 'neon', takes screenshot
-    - API check: CDN-region-check-satellites-profiles — GET /api/satellites-profiles, every 2 hours, N. Virginia + N. California + Oregon, asserts status 200 and x-vercel-cache: HIT
-    - API check: CDN-region-check-satellites — GET /api/satellites, every 2 hours, N. Virginia + N. California + Oregon, asserts status 200 and x-vercel-cache: HIT
-    - 3 locations × 12 runs/day × 31 days × 2 endpoints = 2,232 API runs/month
-    - email alerts on failure
-
     ### Grafana Cloud Loki — Persistent Log Observability
     - signed up for Grafana Cloud free tier (50GB logs, 14 day retention)
     - created satellite-tracker access policy with logs:write scope
@@ -438,13 +431,15 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
     - query all logs: {app="satellite-tracker"}
     - filter single request: {app="satellite-tracker"} | json | request_id="a3f9c2b1"
 
-    ### Grafana Synthetics — CDN Warming (primary)
-    - added API check for /api/satellites — 4 US regions (N. California, Oregon, N. Virginia, Ohio), every 10 minutes, 60s timeout, HEAD request, zero data transfer
-    - added API check for /api/satellites-profiles — same 4 regions, every 10 minutes, HEAD request
-    - switched from GET to HEAD to eliminate data transfer cost — 6MB response × 34,560 runs/month = ~200GB saved
-    - added HEAD method support to satellites-profiles FastAPI endpoint via @app.api_route
-    - 4 locations × 144 runs/day × 30 days × 2 endpoints = 34,560/month (under 100k limit)
-    - switched from Checkly to Grafana for warming 10x more runs available on free tier
+    ### Grafana Synthetics — CDN Warming & Uptime Monitoring
+    - replaced Checkly entirely — Grafana free tier covers both monitoring and warming
+    - added API check for /api/satellites-profiles across 4 US regions (N. California, Oregon, N. Virginia, Ohio), every 1 hour, 20s timeout, Get request
+    - added API check for /api/satellites — same 4 regions, every 1 hour, Get request
+    - added HEAD method support to satellites-profiles FastAPI endpoint via @app.api_route if needed later
+    - Vercel Blob distributes globally from single store (N. Virginia)
+    - 4 locations × 24 runs/day × 31 days × 2 endpoints = 5,952 runs/month
+    - worst case user load time ~6s (CDN miss + cold start + blob fetch) — blob kept fresh by 4x/day cron
+    - email alerts on failure
 
 19. [ ] pytest coverage for worker and API
 20. [ ] Merge satellite-profiles branch to main
