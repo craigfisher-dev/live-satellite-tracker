@@ -370,6 +370,7 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
     - CronJob scheduled: 0 5 * * * (5am UTC / midnight EST  or 1 am EDT) 
     - for future updates: SSH in → git pull → kubectl apply -f k8s/
     - NOTE: currently on satellite-profiles branch — switch to main after step 18 merge
+    - NOTE: 2026-05-25: ran apt-get dist-upgrade, upgraded kernel from 6.8.0-71-generic to 6.8.0-117-generic to patch Copy Fail (CVE-2026-31431) and recent Linux privilege escalation vulnerabilities
 11. [x] Verify CelesTrak/Space-Track NORAD ID overlap
     - Write a quick Python script that fetches active TLE data from CelesTrak
     - Extract all NORAD IDs from the TLE response
