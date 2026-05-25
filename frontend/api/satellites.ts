@@ -15,9 +15,11 @@ export default async function handler(req: any, res: any) {
       token: process.env.BLOB_READ_WRITE_TOKEN,
     });
 
+    let ageHours = '0';
+
     if (cached) {
       const ageMs = Date.now() - new Date(cached.blob.uploadedAt).getTime();
-      const ageHours = (ageMs / 1000 / 60 / 60).toFixed(1);
+      ageHours = (ageMs / 1000 / 60 / 60).toFixed(1);
       const isExpired = ageMs > 24 * 60 * 60 * 1000;
 
       if (!isExpired) {
@@ -43,6 +45,16 @@ export default async function handler(req: any, res: any) {
 
     if (!response.ok) {
       console.error(`[satellites] CelesTrak error: ${response.status}`);
+      if (cached) {
+        console.log(`[satellites] SOURCE: Serving stale Blob cache (CelesTrak failed, ${ageHours}h old)`);
+        const buffer = Buffer.from(await new Response(cached.stream).arrayBuffer());
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Encoding', 'gzip');
+        res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=86400');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('x-cache-source', 'blob-stale');
+        return res.send(buffer);
+      }
       return res.status(502).send('Failed to fetch satellite data');
     }
 
