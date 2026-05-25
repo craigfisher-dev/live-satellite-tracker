@@ -159,7 +159,7 @@ async def get_satellite_profiles():
 
         # --- 3. Full rebuild from source tables (slow path) ---
         satellites_start = datetime.utcnow()
-        satellites = conn.execute(text("SELECT * FROM satellites ORDER BY norad_id")).fetchall()
+        satellites = conn.execute(text("SELECT * FROM satellites WHERE current = 'Y' AND decay_date IS NULL ORDER BY norad_id")).fetchall()
         log(logs, request_id, message="fetched satellites from neon", source="neon", count=len(satellites), duration_ms=round((datetime.utcnow() - satellites_start).total_seconds() * 1000))
 
         images_start = datetime.utcnow()
