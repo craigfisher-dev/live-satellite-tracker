@@ -14,5 +14,18 @@
       "path": "/api/satellites-profiles",
       "schedule": "0 10 * * *"
     }
+  ],
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "live-satellite-tracker.vercel.app"
+        }
+      ],
+      "destination": "https://live-satellite-tracker.com/$1",
+      "permanent": true
+    }
   ]
 }
