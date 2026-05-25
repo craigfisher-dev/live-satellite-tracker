@@ -156,6 +156,7 @@ async def get_satellite_profiles():
                 log(logs, request_id, message="neon cache expired", source="neon", age_hours=round(age_hours, 1))
         except Exception as e:
             log(logs, request_id, message="neon cache check failed", source="neon", error=str(e))
+            conn.rollback()
 
         # --- 3. Full rebuild from source tables (slow path) ---
         satellites_start = datetime.utcnow()
