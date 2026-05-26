@@ -3,6 +3,10 @@
   "functions": {
     "api/satellites.ts": {
       "maxDuration": 60
+    },
+    "api/satellites-profiles.py": {
+      "regions": ["iad1"],
+      "maxDuration": 60
     }
   },
   "crons": [
