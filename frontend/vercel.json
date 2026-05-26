@@ -4,7 +4,7 @@
     "api/satellites.ts": {
       "maxDuration": 60
     },
-    "api/satellites-profiles.py": {
+    "api/satellites-profiles/index.py": {
       "regions": ["iad1"],
       "maxDuration": 60
     }
