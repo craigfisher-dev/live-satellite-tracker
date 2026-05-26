@@ -23,9 +23,7 @@ engine = create_engine(os.getenv("DATABASE_URL"))
 BLOB_FILENAME = "satellites-profiles-cache.gz"
 
 CACHE_HEADERS = {
-    "Cache-Control": "public, max-age=0",
-    "CDN-Cache-Control": "public, s-maxage=86400, stale-while-revalidate=86400",
-    "Vercel-CDN-Cache-Control": "public, s-maxage=86400, stale-while-revalidate=86400",
+    "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=86400",
     "Access-Control-Allow-Origin": "*",
 }
 
