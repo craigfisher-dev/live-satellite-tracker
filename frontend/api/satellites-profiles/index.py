@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.responses import Response
+from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy import create_engine, text
 from vercel.blob import AsyncBlobClient
 from datetime import datetime
@@ -15,6 +16,7 @@ load_dotenv()
 client = AsyncBlobClient()
 
 app = FastAPI()
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 engine = create_engine(os.getenv("DATABASE_URL"))
 
