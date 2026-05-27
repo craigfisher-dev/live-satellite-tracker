@@ -185,8 +185,6 @@ async def get_satellite_profiles():
                 "current": row.current,
                 "rcs_size": row.rcs_size,
                 "purpose": row.purpose,
-                "description": row.description,
-                "operator": row.operator,
                 "image_url": image.image_url if image else None,
                 "credit": image.credit if image else None,
                 "last_updated": row.last_updated.isoformat() if row.last_updated else None,
