@@ -1,12 +1,11 @@
 from fastapi import FastAPI
 from fastapi.responses import Response
-from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy import create_engine, text
 from vercel.blob import AsyncBlobClient
 from datetime import datetime
 import os
 import json
-import gzip
+import brotli
 import httpx
 import uuid
 from dotenv import load_dotenv
@@ -16,11 +15,10 @@ load_dotenv()
 client = AsyncBlobClient()
 
 app = FastAPI()
-app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 engine = create_engine(os.getenv("DATABASE_URL"))
 
-BLOB_FILENAME = "satellites-profiles-cache.gz"
+BLOB_FILENAME = "satellites-profiles-cache.br"
 
 CACHE_HEADERS = {
     "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=86400",
@@ -113,7 +111,7 @@ async def get_satellite_profiles():
             return Response(
                 content=blob_res.content,
                 media_type="application/json",
-                headers={**CACHE_HEADERS, "Content-Encoding": "gzip", "x-cache-source": "blob"},
+                headers={**CACHE_HEADERS, "Content-Encoding": "br", "x-cache-source": "blob"},
             )
         log(logs, request_id, message="blob expired", source="blob", age_hours=round(age_hours, 1))
     except Exception as e:
@@ -136,7 +134,7 @@ async def get_satellite_profiles():
 
                     # Blob was missing/expired — restore it so next request hits the fast path
                     raw = cached.data.encode() if isinstance(cached.data, str) else cached.data
-                    compressed = gzip.compress(raw)
+                    compressed = brotli.compress(raw)
                     try:
                         blob_start = datetime.utcnow()
                         await client.put(BLOB_FILENAME, compressed, access="private", overwrite=True, content_type="application/octet-stream")
@@ -151,7 +149,7 @@ async def get_satellite_profiles():
                     return Response(
                         content=compressed,
                         media_type="application/json",
-                        headers={**CACHE_HEADERS, "Content-Encoding": "gzip", "x-cache-source": "neon-blob-cache"},
+                        headers={**CACHE_HEADERS, "Content-Encoding": "br", "x-cache-source": "neon-blob-cache"},
                     )
                 log(logs, request_id, message="neon cache expired", source="neon", age_hours=round(age_hours, 1))
         except Exception as e:
@@ -181,7 +179,6 @@ async def get_satellite_profiles():
                 "country": row.country,
                 "launch_date": row.launch_date.isoformat() if row.launch_date else None,
                 "launch_site": row.launch_site,
-                "decay_date": row.decay_date.isoformat() if row.decay_date else None,
                 "current": row.current,
                 "rcs_size": row.rcs_size,
                 "purpose": row.purpose,
@@ -202,7 +199,7 @@ async def get_satellite_profiles():
 
     # Store in Blob for next time
     blob_start = datetime.utcnow()
-    compressed = gzip.compress(json.dumps(profiles).encode())
+    compressed = brotli.compress(json.dumps(profiles).encode())
     await client.put(BLOB_FILENAME, compressed, access="private", overwrite=True, content_type="application/octet-stream")
     log(logs, request_id, message="blob stored", source="neon", duration_ms=round((datetime.utcnow() - blob_start).total_seconds() * 1000))
 
@@ -215,5 +212,5 @@ async def get_satellite_profiles():
     return Response(
         content=compressed,
         media_type="application/json",
-        headers={**CACHE_HEADERS, "Content-Encoding": "gzip", "x-cache-source": "neon"},
+        headers={**CACHE_HEADERS, "Content-Encoding": "br", "x-cache-source": "neon"},
     )

@@ -13,7 +13,6 @@ interface SatelliteProfile {
   image_url: string | null
   current: boolean | null
   rcs_size: string | null
-  decay_date: string | null
 }
 
 interface SatelliteInfoPanelProps {
@@ -211,7 +210,6 @@ export function SatelliteInfoPanel({ noradId, omm, livePosition, onClose }: Sate
                     // Best name to sum up country code and organization code in one word
                     { label: 'Source', value: profile.country },
                     { label: 'Launched', value: formatDate(profile.launch_date) },
-                    { label: 'Decayed', value: formatDate(profile.decay_date) },
                     { label: 'Launch Site', value: profile.launch_site },
                     { label: 'Purpose', value: profile.purpose },
                     { label: 'RCS Size', value: profile.rcs_size },
