@@ -434,12 +434,15 @@ Returns all satellite profiles at once. Fetched on app load, cached in IndexedDB
 
     ### Grafana Synthetics — CDN Warming & Uptime Monitoring
     - replaced Checkly entirely — Grafana free tier covers both monitoring and warming
-    - added API check for /api/satellites-profiles across 4 US regions (N. California, Oregon, N. Virginia, Ohio), every 1 hour, 20s timeout, Get request
-    - added API check for /api/satellites — same 4 regions, every 1 hour, Get request
-    - added HEAD method support to satellites-profiles FastAPI endpoint via @app.api_route if needed later
-    - Vercel Blob distributes globally from single store (N. Virginia)
-    - 4 locations × 24 runs/day × 31 days × 2 endpoints = 5,952 runs/month
-    - worst case user load time ~6s (CDN miss + cold start + blob fetch) — blob kept fresh by 4x/day cron
+    - created two k6 scripted checks (not HTTP checks — HTTP checks force cache busting via random query param, defeating CDN warming)
+    - k6 check for /api/satellites-profiles — hits endpoint with Accept-Encoding: gzip, deflate, br header, logs x-vercel-cache and x-cache-source, checks status 200
+    - k6 check for /api/satellites — same setup
+    - both checks run every 5 minutes across 4 US regions — warms CDN cache in each region proactively
+    - real users always get CDN HIT after first probe fires
+    - 4 probes × 5 seconds × 8,640 runs/month = ~48 VUh/month per check, ~96 VUh/month total for both checks (well within 500 VUh free tier)
+    - CDN cache confirmed working: X-Vercel-Cache HIT at 7ms vs 1395ms before
+    - brotli compression reduced payload from 11.7MB to 185KB — got under Vercel's 10MB CDN cache limit
+    - switched from gzip to brotli in satellites-profiles endpoint — removed GZipMiddleware, added brotli.compress(), Content-Encoding: br
     - email alerts on failure
 
 19. [ ] pytest coverage for worker and API
