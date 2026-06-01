@@ -20,7 +20,8 @@ Real-time 3D visualization of 15,000+ active satellites orbiting Earth. Click an
 
 Satellites appear as colored dots on a 3D Earth globe. Click any satellite to view its predicted orbital trajectory for one complete revolution ahead. Toggle between two color modes: network mode colors satellites by constellation (Starlink, OneWeb, GPS, etc.), while altitude mode colors them by orbital height from Earth (LEO, MEO, GEO, HEO). Time starts at real-time (1x speed) and can be paused, reversed, or accelerated up to 1000x in either direction to watch orbital motion.
 
-<img alt="live-satellite-tracker vercel app_(High Res) (1)" src="https://github.com/user-attachments/assets/a45a5137-0491-4e1f-afbe-aeb14403189a" />
+<img alt="live-satellite-tracker com_(High Res)" src="https://github.com/user-attachments/assets/bd105e5c-af45-4a70-931e-6303f5730da3" />
+
 
 *Screenshot showing OneWeb satellite with predicted orbital path visualization*
 
