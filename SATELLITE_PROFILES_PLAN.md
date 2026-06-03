@@ -16,7 +16,7 @@ Nothing in the existing tracker changes. This is purely additive.
 - **Neon** — free serverless Postgres, stores the enriched satellite records
 - **Python worker** — scheduled script that fetches data from Space-Track and writes to the database
 - **Docker + Kubernetes (K3s)** — containerizes and schedules the worker
-- **DigitalOcean Droplet** — $8/month Linux VPS where Docker and Kubernetes run, always on
+- **DigitalOcean Droplet** — $12/month Linux VPS where Docker and Kubernetes run, always on
 - **Terraform** — manages Vercel project config and env vars as code
 - **GitHub Actions** — runs tests, builds Docker image, deploys on push
 - **pytest** — tests the API endpoints and worker logic
