@@ -2,20 +2,20 @@
 
 **Live App**: https://live-satellite-tracker.com/
 
-Real-time 3D visualization of 15,000+ active satellites orbiting Earth. Click any satellite to view its predicted orbital trajectory and full profile. Built with React, TypeScript, and CesiumJS, deployed on Vercel.
+Real-time 3D visualization of 15,000+ active satellites orbiting Earth. Click any satellite to view its predicted orbital trajectory and full profile. Built with React, TypeScript, Python, and CesiumJS, deployed on Vercel.
 
 ## Features
 
-- Real-time tracking of 15,000+ satellites on interactive 3D globe
+- Real-time tracking of 15,000+ active satellites on interactive 3D globe
 - Click any satellite to view its predicted orbital path and a full profile with name, country, purpose, launch date, launch site, size, and photo
-- Profile data updated daily from Space-Track.org and the Union of Concerned Scientists satellite database, with images sourced from NASA and Wikimedia Commons
+- Profile data updated daily from Space-Track.org and Union of Concerned Scientists satellite database, with images sourced from NASA and Wikimedia Commons
 - Control simulation time: pause, play, or adjust speed (-1000x to +1000x)
 - Realistic Earth lighting and shading with day/night cycles
 - Full Earth map imagery from OpenStreetMap and CARTO
 - Complete 3D camera navigation with pan, rotate, and zoom
 - Toggle between network-based or altitude-based color coding
 - Glowing neon country borders rendered from GeoJSON data
-- Postgres database (Neon) storing profiles for 68,000+ satellites
+- Postgres database (Neon) storing 68,000+ satellite records
 - Python worker containerized with Docker and scheduled daily via Kubernetes on a DigitalOcean VPS to fetch and merge data
 - Satellite profiles served from a custom-built FastAPI REST API
 - Brotli compression across all API endpoints for fast and reliable CDN caching
@@ -24,7 +24,7 @@ Real-time 3D visualization of 15,000+ active satellites orbiting Earth. Click an
 
 ## How It Works
 
-Satellites appear as colored dots on a 3D Earth globe. Click any satellite to view its predicted orbital trajectory for one full revolution. A profile panel opens alongside showing the satellite's name, country, purpose, launch details, and photo. Toggle between two color modes: network mode colors satellites by constellation (Starlink, OneWeb, GPS, etc.), while altitude mode colors them by orbital height from Earth (LEO, MEO, GEO, HEO). Time starts at real-time (1x speed) and can be paused, reversed, or accelerated up to 1000x in either direction to watch orbital motion.
+Satellites appear as colored dots on a 3D Earth globe. Click any satellite to view its predicted orbital trajectory for one full revolution. A profile panel opens alongside showing satellite's name, country, purpose, launch details, and photo. Toggle between two color modes: network mode colors satellites by constellation (Starlink, OneWeb, GPS, etc.), while altitude mode colors them by orbital height from Earth (LEO, MEO, GEO, HEO). Time starts at real-time (1x speed) and can be paused, reversed, or accelerated up to 1000x in either direction to watch orbital motion.
 
 <img alt="live-satellite-tracker com_(High Res)" src="https://github.com/user-attachments/assets/bd105e5c-af45-4a70-931e-6303f5730da3" />
 
@@ -68,11 +68,11 @@ Satellites appear as colored dots on a 3D Earth globe. Click any satellite to vi
 ## Data Processing
 
 **Data Fetching & Caching**
-- A TypeScript Vercel serverless function serves TLE data from a Blob cache, fetching fresh from CelesTrak when expired, trimming the OMM JSON ~70% (keeping only fields required for satellite.js propagation), applying Brotli compression, and storing it back in Blob cache
-- A Python FastAPI serverless function serves satellite profiles, walking each cache layer and rebuilding from Neon (Satellite catalog merged with satellite and constellation images) when stale, then applying Brotli compression
-- When satellite profiles are missing or expired in Blob cache, the FastAPI rebuilds it from the Neon response cache so the next request hits the fast path
+- TypeScript Vercel serverless function serves TLE data from a Blob cache, fetching fresh from CelesTrak when expired, trimming the OMM JSON ~70% (keeping only fields required for satellite.js propagation), applying Brotli compression, and storing it back in Blob cache
+- Python FastAPI serverless function serves satellite profiles, walking each cache layer and rebuilding from Neon (Satellite catalog merged with satellite and constellation images) when stale, then applying Brotli compression
+- When satellite profiles are missing or expired in Blob cache, FastAPI rebuilds it from Neon response cache so the next request hits the fast path
 - Profiles cover ~34,000 in-orbit objects (filtered from the 68,000+ catalog by dropping decayed entries), including unnamed rocket bodies and debris
-- The frontend stores both TLE and profile data in IndexedDB after fetching, with profiles loading in the background after the globe renders (~490ms) so the UI isn't blocked
+- Frontend stores both TLE and profile data in IndexedDB after fetching, with profiles loading in the background after the globe renders (~490ms) so UI isn't blocked
 - Cache layers, fastest to slowest (Fallback hierarchy)
   - IndexedDB (24hr browser cache)
   - Vercel Edge CDN (24hr)
@@ -82,13 +82,13 @@ Satellites appear as colored dots on a 3D Earth globe. Click any satellite to vi
 - On network failure, serves stale IndexedDB data if a cache exists
 
 **DigitalOcean Data Pipeline**
-- A Dockerized Python worker runs daily at 5am UTC via a Kubernetes CronJob (K3s) on a DigitalOcean Basic Droplet (1 vCPU, 2GB RAM, 35GB SSD), with the image pulled from Docker Hub
-- K3s installed with Traefik and ServiceLB disabled, saving ~100MB RAM on the 2GB Droplet since the worker only makes outbound requests and needs neither
+- Dockerized Python worker runs daily at 5am UTC via a Kubernetes CronJob (K3s) on a DigitalOcean Basic Droplet (1 vCPU, 2GB RAM, 35GB SSD), with image pulled from Docker Hub
+- K3s installed with Traefik and ServiceLB disabled, saving ~100MB RAM on 2GB Droplet since the worker only makes outbound requests and needs neither
 - Manifests deploy into a dedicated satellite-tracker namespace, with environment config in a ConfigMap and credentials in a separate Secrets file
-- The pipeline runs across three Python scripts
-  - `spacetrack.py` logs into Space-Track.org, fetches the full SATCAT in a single batch request, and logs out
-  - `worker.py` loads the UCS satellite database CSV and merges it with the SATCAT by NORAD ID, attaching operator, purpose, and description to each record
-  - `db.py` defines the Neon PostgreSQL schema and batch upserts all 68,000+ merged records in a single SQLAlchemy operation
+- Pipeline runs across three Python scripts
+  - `spacetrack.py` logs into Space-Track.org, fetches full SATCAT in a single batch request, and logs out
+  - `worker.py` loads UCS satellite database CSV and merges it with SATCAT by NORAD ID, attaching operator, purpose, and description to each record
+  - `db.py` defines Neon PostgreSQL schema and batch upserts all 68,000+ merged records in a single SQLAlchemy operation
 
 **Orbital Calculations**
 - SGP4 orbital propagation algorithm calculates real-time satellite positions at 60 FPS
@@ -121,9 +121,9 @@ Satellites appear as colored dots on a 3D Earth globe. Click any satellite to vi
 - Grafana Synthetics runs custom k6 scripted checks on both endpoints every hour across 4 US regions for ongoing CDN warming and uptime monitoring
 - k6 scripted checks used over API Endpoint checks because API Endpoint checks force cache busting via a random query parameter, defeating CDN warming
 - Email alerts on check failure
-- Grafana Cloud Loki collects structured logs from the profiles endpoint on the free tier (50GB logs, 14 day retention)
+- Grafana Cloud Loki collects structured logs from the profiles endpoint on free tier (50GB logs, 14 day retention)
 - Logs are collected throughout each request and pushed to Loki in a single batch right before returning, with a 3s timeout and silent fallback so logging never crashes the endpoint
-- The profiles endpoint assigns a unique ID to each API call, grouping all log entries from that request together so the full journey of any single call can be traced through Loki
+- Profiles endpoint assigns a unique ID to each API call, grouping all log entries from that request together so the full journey of any single call can be traced through Loki
 
 ## Controls
 
