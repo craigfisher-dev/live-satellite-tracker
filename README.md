@@ -8,7 +8,6 @@ Real-time 3D visualization of 15,000+ active satellites orbiting Earth. Click an
 
 - Real-time tracking of 15,000+ active satellites on interactive 3D globe
 - Click any satellite to view its predicted orbital path and a full profile with name, source, purpose, launch date, launch site, size, current position, orbital elements, and photo
-- Profile data updated daily with images sourced from NASA and Wikimedia Commons
 - Control simulation time: pause, play, or adjust speed (-1000x to +1000x)
 - Realistic Earth lighting and shading with day/night cycles
 - Full Earth map imagery from OpenStreetMap and CARTO
