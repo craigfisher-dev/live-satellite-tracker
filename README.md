@@ -7,8 +7,8 @@ Real-time 3D visualization of 15,000+ active satellites orbiting Earth. Click an
 ## Features
 
 - Real-time tracking of 15,000+ active satellites on interactive 3D globe
-- Click any satellite to view its predicted orbital path and a full profile with name, country, purpose, launch date, launch site, size, and photo
-- Profile data updated daily from Space-Track.org and Union of Concerned Scientists satellite database, with images sourced from NASA and Wikimedia Commons
+- Click any satellite to view its predicted orbital path and a full profile with name, source, purpose, launch date, launch site, size, current position, orbital elements, and photo
+- Profile data updated daily with images sourced from NASA and Wikimedia Commons
 - Control simulation time: pause, play, or adjust speed (-1000x to +1000x)
 - Realistic Earth lighting and shading with day/night cycles
 - Full Earth map imagery from OpenStreetMap and CARTO
@@ -16,15 +16,15 @@ Real-time 3D visualization of 15,000+ active satellites orbiting Earth. Click an
 - Toggle between network-based or altitude-based color coding
 - Glowing neon country borders rendered from GeoJSON data
 - Postgres database (Neon) storing 68,000+ satellite records
-- Python worker containerized with Docker and scheduled daily via Kubernetes on a DigitalOcean VPS to fetch and merge data
 - Satellite profiles served from a custom-built FastAPI REST API
 - Brotli compression across all API endpoints for fast and reliable CDN caching
 - Optimized performance with IndexedDB, Vercel Blob, and Vercel Edge CDN
-- Custom k6 scripted checks via Grafana Synthetics for uptime monitoring and CDN cache warming across US regions
+- Python worker containerized with Docker and scheduled daily via Kubernetes on a DigitalOcean VPS to fetch and merge satellite data from Space-Track.org and the Union of Concerned Scientists into Postgres database
+- Custom k6 checks via Grafana Synthetics for uptime monitoring and CDN cache warming across US regions
 
 ## How It Works
 
-Satellites appear as colored dots on a 3D Earth globe. Click any satellite to view its predicted orbital trajectory for one full revolution. A profile panel opens alongside showing satellite's name, country, purpose, launch details, and photo. Toggle between two color modes: network mode colors satellites by constellation (Starlink, OneWeb, GPS, etc.), while altitude mode colors them by orbital height from Earth (LEO, MEO, GEO, HEO). Time starts at real-time (1x speed) and can be paused, reversed, or accelerated up to 1000x in either direction to watch orbital motion.
+Satellites appear as colored dots on a 3D Earth globe. Click any satellite to view its predicted orbital trajectory for one full revolution. A profile panel opens alongside showing satellite's name, source, purpose, launch date, launch site, size, current position, orbital elements, and photo. Toggle between two color modes: network mode colors satellites by constellation (Starlink, OneWeb, GPS, etc.), while altitude mode colors them by orbital height from Earth (LEO, MEO, GEO, HEO). Time starts at real-time (1x speed) and can be paused, reversed, or accelerated up to 1000x in either direction to watch orbital motion.
 
 <img alt="live-satellite-tracker com_(High Res)" src="https://github.com/user-attachments/assets/bd105e5c-af45-4a70-931e-6303f5730da3" />
 
