@@ -72,9 +72,10 @@ function App() {
     // Setup the custom help panel
     setupHelpPanel(viewer)
 
+    const cartoKey = import.meta.env.VITE_CARTO_KEY;
 
     const carto = new Cesium.UrlTemplateImageryProvider({
-      url: 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+      url: `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=${cartoKey}`,
       credit: '© OpenStreetMap contributors © CARTO'
     })
     viewer.imageryLayers.addImageryProvider(carto)
