@@ -3,6 +3,7 @@ import * as satellite from 'satellite.js'
 import { fetchSatelliteData } from './satelliteCache'
 import { getActiveFilter, onFilterChange } from './SatelliteFilter'
 import { fetchSatelliteProfiles } from './profileCache'
+import { createSelectionIndicators } from './SelectionIndicators'
 
 export async function Satellite(
   viewer: Cesium.Viewer,
@@ -25,6 +26,9 @@ export async function Satellite(
 
   // Create collections of orbitalPredictionPath (one draw call each)
   const orbitalPredictionPaths = viewer.scene.primitives.add(new Cesium.PolylineCollection())
+
+  // Create the selection marker for the tracked satellite (hidden until one is selected)
+  const indicators = createSelectionIndicators(viewer)
 
   // Store satrecs, points, and labels together
   // Added omm to store the raw data for recoloring later
@@ -192,7 +196,10 @@ export async function Satellite(
       // Set new position on map and in the label
       sat.point.position = scratch
     }
-
+    
+    // Update the selection marker, or hide it when nothing is selected
+    indicators.update(selectedSatellite ? selectedSatellite.point : null)
+    
     // Update orbit path for selected satellite
     if (selectedSatellite) {
       selectedSatellite.orbitalPredictionPath.positions = calculateOrbit(selectedSatellite)

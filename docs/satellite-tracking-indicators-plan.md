@@ -1,121 +1,109 @@
-# Satellite Tracking Indicators: Small Feature Plan
+# Satellite Tracking Indicators
 
 Branch: `satellite-tracking-indicators`
 
-Two visual touches for the selected satellite. Purely additive, only touches `SatelliteTracker.ts`. The performance work is a separate plan and happens later.
+Status: implemented, visual testing pending. The performance work is a separate plan.
 
 ---
 
-## What's being added
+## Summary
 
-1. **Green selection animation**: a spinning ring around the selected satellite (with an optional gentle pulse) so it feels alive and clearly "tracked"
-2. **Ground line**: a line from the satellite straight down to the spot on Earth it is currently over, with a small marker where it lands
+A selection marker for the tracked satellite. It lives in a new module, `src/utils/SelectionIndicators.ts`, so `SatelliteTracker.ts` only needs three additions: an import, one call to create the marker, and one call per frame to update it.
 
-Both only exist for the one selected satellite. Both follow it every frame and disappear when the selection clears.
-
----
-
-## Feature 1: Spinning green ring
-
-- One `Billboard` in a `BillboardCollection`, created once at startup with `show: false`
-- Image is drawn on a canvas: green ring made of 3 arcs with gaps, so the rotation is actually visible (a solid ring looks like it isn't moving)
-- Ring is about 32px on screen at scale 0.5, around the 3px dot
-- Each frame while selected:
-  - `position` = the selected satellite's current point position
-  - `rotation` = time based, about 2 rad/sec, negative for clockwise
-  - optional pulse: scale oscillates a few percent on a sine wave
-- Show it on select, hide it on deselect
-- Needs `viewer.scene.requestRender()` each frame while selected, because `requestRenderMode` would freeze the ring when the sim clock is paused
-
-### Maybe
-- Quick "pop" on click (ring starts big and shrinks into place over ~300ms)
-- Color tweak to match the rest of the UI
+The marker is a flat hexagon that lies in the local horizontal plane at the satellite (its axis points toward the Earth). It rotates slowly, keeps a roughly constant on-screen size, and is clipped by the globe when it falls behind the Earth.
 
 ---
 
-## Feature 2: Ground line (satellite to the point below it)
+## Changes from the original plan
 
-The point directly below a satellite is its sub-satellite point: same latitude and longitude, altitude zero.
-
-- One extra `Polyline` with 2 positions, added once to a `PolylineCollection` (can share the existing one, it is a separate polyline from the orbit line)
-- Each frame while selected:
-  - top end = satellite's current position
-  - bottom end = that position projected down to the surface
-  - Cesium has this built in: `Cesium.Ellipsoid.WGS84.scaleToGeodeticSurface(position, result)` returns the surface point below (reuse one scratch `Cartesian3`, and skip the frame if it returns `undefined`)
-- Style: thin green line, maybe dashed (`Cesium.Material.fromType('PolylineDash', ...)`) so it reads differently from the yellow orbit line
-- Small green `PointPrimitive` at the landing spot so you can see where it touches Earth
-- Hide both on deselect
-
-### Things to watch
-- Lift the bottom end about 1000 m above the surface (same trick as the country borders) so it doesn't z-fight with the globe
-- If the satellite is on the far side of Earth, the globe hides the line. That is correct behavior, not a bug
-- The line is long for high orbits (GEO is about 36,000 km). That is fine, it actually shows the altitude nicely
-
-### Maybe
-- Fade the line from bright at the satellite to dim at the ground
-- Tiny pulse ring on the ground marker
+| Original plan | Final |
+| --- | --- |
+| Spinning 3-arc ring, camera-facing billboard | Hexagon on a flat plane aligned to the local horizon, rotating clockwise |
+| Ground line and ground marker | Removed |
+| Pulse and click "pop" animation | Removed, rotation only |
+| Show/hide handled in the click handler | No click handler changes. `update()` runs every frame and hides the marker when nothing is selected |
+| Delete the `sat === selectedSatellite` early return | Kept. The animation loop rebuilds the orbit line every frame, so the early return has no visible effect |
+| Only `SatelliteTracker.ts` changes | New module plus three additions to `SatelliteTracker.ts` |
 
 ---
 
-## How it fits the existing code
+## Implementation
 
-- Created once, right after the existing collections
-- Click handler:
-  - "clear previous selection" block: hide ring, hide ground line and marker
-  - after `selectedSatellite = sat`: show them
-  - empty space click: hide them
-- `updatePositions()`, inside the existing `if (selectedSatellite)` block: update ring position/rotation, update ground line ends and marker, call `requestRender()`
-- Nothing else in the file changes, orbit line, info panel, filters, caching all untouched
+### `SelectionIndicators.ts`
+
+Exports `createSelectionIndicators(viewer)`, which returns `{ update(point) }`.
+
+- **Marker:** one `Primitive` using `PlaneGeometry` and an `Image` material. The image is an SVG hexagon drawn at 128px, with a dark opaque fill, a mint outline and a small center hole so the satellite's dot stays visible.
+- **Placement:** done in `scene.preRender`, when the camera is at its final position for the frame. This avoids size lag while zooming. Each frame it:
+  - builds the local east/north/up frame at the satellite with `Transforms.headingPitchRollToFixedFrame`, using heading as the rotation
+  - lifts the plane slightly (`LIFT_PX`) so it does not z-fight with the orbit line, which lies in nearly the same plane
+  - scales it to the target pixel size using `camera.getPixelSize` and the distance scale
+- **Distance scaling:** clamped at both ends (scale 1 at 1e6 m, 0.4 at 1e8 m).
+- **Earth occlusion:** the plane is depth tested, so the globe clips it at the limb.
+- **Selected dot:** `disableDepthTestDistance` is set to infinity so the dot draws above the orbit line. A horizon test (`isHiddenByEarth`) turns this off when the satellite is behind the Earth. It is restored when the selection changes.
+- **Rendering:** `requestRender()` is called every frame while a satellite is selected, so the rotation continues with the sim clock paused (`requestRenderMode`). One extra render runs on deselect to remove the marker.
+
+### `SatelliteTracker.ts`
+
+1. Import `createSelectionIndicators`
+2. `const indicators = createSelectionIndicators(viewer)` after the collections
+3. `indicators.update(selectedSatellite ? selectedSatellite.point : null)` in `updatePositions()`, after the satellite loop
 
 ---
 
-## Fix while in there
+## Configuration
 
-- Re-clicking the selected satellite clears its orbit line, then `if (sat === selectedSatellite) return` leaves it selected with no orbit. Now it would also hide the ring and line while still "selected". Delete that early return so a re-click just reselects
+Constants at the top of `SelectionIndicators.ts`:
+
+- `HEX_COLOR`, `HEX_FILL_COLOR`, `HEX_FILL_OPACITY`: appearance
+- `HEX_SIZE_PX`: base on-screen size
+- `SECONDS_PER_LAP`: rotation speed
+- `LIFT_PX`: offset above the orbit line's plane
+- `NEAR_DISTANCE`, `NEAR_SCALE`, `FAR_DISTANCE`, `FAR_SCALE`: zoom scaling
 
 ---
 
 ## Build order
 
-1. [ ] Add `createRingImage()` helper
-2. [ ] Create the billboard (hidden) and the ring
-3. [ ] Show/hide ring in the click handler
-4. [ ] Spin + follow in `updatePositions()`, add `requestRender()`
-5. [ ] Test with the sim paused (ring should keep spinning)
-6. [ ] Create the ground line polyline + ground marker (hidden)
-7. [ ] Show/hide them in the click handler
-8. [ ] Update both ends each frame, using `scaleToGeodeticSurface`
-9. [ ] Test: line should hit the ground at the same lat/lon shown in the info panel's Current Position section
-10. [ ] Fix the re-click bug
-11. [ ] Tune: ring size/speed, line width/dash, colors
+- [x] Create `SelectionIndicators.ts` with `createSelectionIndicators(viewer)`
+- [x] Draw the SVG hexagon image (fill, center hole, outline)
+- [x] Create the flat plane primitive, hidden by default
+- [x] Place, size and rotate it each frame in `preRender`
+- [x] Add distance scaling clamped at both ends
+- [x] Draw the selected dot above the orbit line and restore it when the selection changes
+- [x] Add the Earth horizon test so the dot hides behind the globe
+- [x] Hook into `SatelliteTracker.ts` (import, create, per-frame update)
+- [x] Update the two stale comments in `SatelliteTracker.ts`
+- [ ] Run through the testing checklist below
+
+---
+
+## Known tradeoffs
+
+- The marker is a flat plane, so it is seen edge-on near the globe's limb and can nearly disappear there.
+- The orbit line lies close to the marker's plane near the satellite. `LIFT_PX` reduces z-fighting, but it may need tuning.
+- The plane, `Image` material and SVG data URL combination has not been confirmed in this setup.
 
 ---
 
 ## Testing
 
-- **Visual checks**
-  - Select a satellite, ring appears and spins, ground line drops to Earth
-  - Click another satellite, everything moves to the new one, nothing left behind on the old one
-  - Click empty space, everything hides
-  - Pause the clock, ring keeps spinning
-  - Run at 1000x, ring and line stay attached to the dot (no lag)
-  - Try a LEO satellite and a GEO satellite, line length should look right for both
-- **Correctness check**
-  - The ground marker's latitude and longitude should match the Current Position panel
-- **Optional unit test** (Vitest, no Cesium needed): take a known position, find its surface point, and check the lat/lon match and the altitude is about 0
+- [ ] Select a satellite: marker appears flat to the ground and rotates
+- [ ] Select another satellite: marker moves, nothing is left on the old one
+- [ ] Click empty space: marker hides
+- [ ] Pause the clock: rotation continues
+- [ ] Run at 1000x: marker stays attached to the dot with no lag
+- [ ] Zoom in and out: size stays within the limits, no growth lag
+- [ ] Rotate the globe so the satellite crosses the limb: the globe clips the marker, the dot hides behind the Earth
+- [ ] Check a LEO and a GEO satellite
+- [ ] Check for z-fighting between the marker and the orbit line
+- [ ] Check that the selected dot stays above the orbit line at all camera angles
+- [ ] Deselect and reselect: the previous dot returns to normal depth testing
 
 ---
 
 ## What stays the same
 
-- The globe, dots, orbit line, filters, time controls, info panel, caching
-- All the performance work (separate plan)
-
----
-
-## Open questions
-
-- Dashed or solid ground line?
-- Include the ground marker dot, or just the line?
-- Pulse on the ring, or spin only?
-- Same green for both, or a slightly different shade for the ground line?
+- The globe, dots, orbit line, filters, time controls, info panel and caching
+- The click handler, including the early return
+- The performance work (separate plan)
