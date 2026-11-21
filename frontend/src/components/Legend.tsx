@@ -41,7 +41,7 @@ const filters = [
   },
 ]
 
-// The UI Component that handles showing the Legend in the top right of the UI
+// The UI Component that handles showing the Legend in the top left of the UI
 // It also acts as the switch: changing the page changes how the satellites are colored on the globe
 export default function Legend() {
   // Which page is showing (0 = Network, 1 = Altitude)
