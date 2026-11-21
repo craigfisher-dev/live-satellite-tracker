@@ -3,8 +3,14 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { filterByNetwork, filterByAltitude, setActiveFilter } from '../utils/SatelliteFilter'
 import * as Cesium from 'cesium'
 
+// Array of legend pages. Each page has 3 parts:
+// title: Name shown at the top of the legend
+// filterFn: The function that colors the satellites on the globe for this page
+// items: The color key shown in the legend (label + color)
+// The colors here must match the colors SatelliteFilter applies to the satellites
 const filters = [
   {
+    // Network page: colors satellites by constellation (Starlink, GPS, etc.)
     title: 'Network',
     filterFn: filterByNetwork,
     items: [
@@ -23,6 +29,7 @@ const filters = [
     ]
   },
   {
+    // Altitude page: colors satellites by orbit height (ranges are approximate, keep them in sync with filterByAltitude)
     title: 'Altitude',
     filterFn: filterByAltitude,
     items: [
@@ -34,26 +41,34 @@ const filters = [
   },
 ]
 
+// The UI Component that handles showing the Legend in the top right of the UI
+// It also acts as the switch: changing the page changes how the satellites are colored on the globe
 export default function Legend() {
+  // Which page is showing (0 = Network, 1 = Altitude)
   const [currentPage, setCurrentPage] = useState(0)
 
+  // Number of pages, and the page being shown right now
   const totalPages = filters.length
   const currentFilter = filters[currentPage]
 
+  // Shows the new page and tells the globe to use that page's filter (legend and satellite colors always change together)
   function switchTo(newPage: number) {
     setCurrentPage(newPage)
     setActiveFilter(filters[newPage].filterFn)
   }
 
+  // Previous page (wraps around: going back from the first page lands on the last)
   function handlePrev() {
     switchTo(currentPage === 0 ? totalPages - 1 : currentPage - 1)
   }
 
+  // Next page (wraps around: going forward from the last page lands on the first)
   function handleNext() {
     switchTo(currentPage === totalPages - 1 ? 0 : currentPage + 1)
   }
 
   return (
+    // Legend box: dark rounded panel, capped to the screen height
     <div style={{
       background: 'rgba(0, 0, 0, 0.8)',
       borderRadius: '12px',
@@ -66,6 +81,7 @@ export default function Legend() {
       overflow: 'hidden',
       maxHeight: 'calc(100vh - 64px)'
     }}>
+      {/* Header row: previous arrow, page title, next arrow */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
         <button onClick={handlePrev} className="p-1">
           <ChevronLeft className="w-4 h-4 text-white" />
@@ -76,10 +92,12 @@ export default function Legend() {
         </button>
       </div>
 
+      {/* Page counter: current page out of total, e.g. 1 / 2 */}
       <div style={{ textAlign: 'center', fontSize: '12px', color: '#aaa', marginBottom: '4px' }}>
         {currentPage + 1} / {totalPages}
       </div>
 
+      {/* Color key: one row per item, a colored dot (item.color as CSS) and its label */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
         {currentFilter.items.map((item) => (
           <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
